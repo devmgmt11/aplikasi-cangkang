@@ -33,7 +33,7 @@ android: true
 ios: false
 image_path: "assets/logo.png"
 
-Pastikan bagian flutter: ini HANYA ADA SATU di seluruh file
+Bagian flutter utama
 
 flutter:
 uses-material-design: true
