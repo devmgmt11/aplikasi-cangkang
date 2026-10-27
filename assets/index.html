@@ -1,0 +1,2689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="color-scheme" content="light only">
+    <title>Dashboard - PayPal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        paypal: {
+                            blue: '#142C8E',     
+                            dark: '#003087',
+                            light: '#0070BA',
+                            bg: '#F5F7FA',       
+                            actionbg: '#F2F5F7'  
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        :root { color-scheme: light; }
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F5F7FA;
+            color: #1f2937;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+        button, a, [onclick], input, select {
+            touch-action: manipulation;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .spinner {
+            border: 4px solid rgba(0,0,0,0.1);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border-left-color: #0070BA;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .contact-card .trash-btn { opacity: 0; transition: opacity 0.2s ease-in-out; }
+        .contact-card:hover .trash-btn, .contact-card:active .trash-btn { opacity: 1; }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+    <div id="login-overlay" style="display: none; background-color: #F5F7FA;" class="fixed inset-0 z-[100] bg-[#F5F7FA] flex justify-center items-start pt-6 sm:pt-12 px-4 overflow-y-auto pb-10">
+        <div class="w-full max-w-[440px] bg-white border border-gray-200 rounded-xl p-6 sm:p-10 shadow-sm relative" style="background-color: #ffffff;">
+            
+            <div class="flex justify-center mb-6">
+                <span class="text-[#0070BA] font-bold text-3xl tracking-tighter">PayPal</span>
+            </div>
+            
+            <div id="step-email-container">
+                <form id="form-email" onsubmit="handleEmailSubmit(event); return false;" class="space-y-6">
+                    <div>
+                        <input type="email" id="email-input" required 
+                               autocapitalize="none" autocorrect="off" spellcheck="false"
+                               placeholder="Email or mobile phone number" 
+                               class="w-full px-4 py-3.5 border border-gray-400 rounded-md focus:outline-none focus:border-paypal-light focus:ring-1 focus:ring-paypal-light text-[16px] placeholder-gray-500 text-black bg-white">
+                        <p id="email-error" class="text-red-600 text-sm mt-2" style="display: none;"></p>
+                    </div>
+                    <div class="flex justify-between items-center text-sm font-semibold text-paypal-light">
+                        <button type="button" onclick="openInfoModal('Forgot Email', 'Please contact the administrator for account email recovery.')" class="hover:underline cursor-pointer" data-i18n="forgot_email">Forgot email?</button>
+                    </div>
+                    <button type="submit" class="w-full bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3.5 rounded-full text-lg font-bold transition duration-200 cursor-pointer" data-i18n="next">Next</button>
+                    <div class="mt-8 relative flex items-center justify-center">
+                        <div class="absolute border-t border-gray-300 w-full"></div>
+                        <span class="bg-white px-4 text-gray-600 text-sm font-medium relative" style="background-color: #ffffff;" data-i18n="or">or</span>
+                    </div>
+                    <div class="mt-8">
+                        <button type="button" onclick="openRegisterModal()" class="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-paypal-dark border border-gray-900 py-3.5 rounded-full text-lg font-bold transition duration-200 cursor-pointer" data-i18n="sign_up">Sign Up</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="step-password-container" style="display: none;">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full mb-4 border border-gray-200">
+                        <span id="display-email" class="text-sm font-medium text-gray-700"></span>
+                        <button type="button" onclick="ubahEmail()" class="text-sm text-paypal-light font-bold hover:underline cursor-pointer" data-i18n="change">Change</button>
+                    </div>
+                    <h2 class="text-2xl font-medium text-gray-900" data-i18n="enter_password">Enter your password</h2>
+                </div>
+                <form id="form-password" onsubmit="handlePasswordSubmit(event); return false;" class="space-y-6">
+                    <div>
+                        <input type="password" id="password-input" required 
+                               autocapitalize="none" autocorrect="off" spellcheck="false"
+                               placeholder="Password" 
+                               class="w-full px-4 py-3.5 border border-gray-400 rounded-md focus:outline-none focus:border-paypal-light focus:ring-1 focus:ring-paypal-light text-[16px] placeholder-gray-500 text-black bg-white">
+                        <p id="password-error" class="text-red-600 text-sm mt-2" style="display: none;"></p>
+                    </div>
+                    <div class="text-sm font-semibold text-paypal-light">
+                        <button type="button" onclick="openInfoModal('Forgot Password', 'Please contact the administrator to reset your password.')" class="hover:underline cursor-pointer" data-i18n="forgot_password">Forgot password?</button>
+                    </div>
+                    <button type="submit" class="w-full bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3.5 rounded-full text-lg font-bold transition duration-200 cursor-pointer" data-i18n="log_in">Log In</button>
+                </form>
+            </div>
+
+            <div id="step-loading-container" style="display: none;" class="py-10 text-center flex-col items-center">
+                <div class="spinner mb-6"></div>
+                <p id="loading-text" class="text-gray-600 text-lg font-medium" data-i18n="loading">Loading...</p>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="register-modal" style="display: none;" class="fixed inset-0 z-[120] bg-black/60 flex justify-center items-center px-4 overflow-y-auto py-10 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-gray-200 relative my-auto" style="background-color: #ffffff;">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+                <h3 class="text-xl font-bold text-gray-900" data-i18n="create_account">Create Account</h3>
+                <button type="button" onclick="closeRegisterModal()" class="text-gray-400 hover:text-gray-700 p-2 cursor-pointer">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <form id="form-register" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1" data-i18n="full_name">Full Name</label>
+                    <input type="text" id="reg-name" placeholder="e.g. JOHN DOE"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-sm text-gray-900 bg-white uppercase">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1" data-i18n="dob">Date of Birth</label>
+                    <input type="date" id="reg-dob"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-sm text-gray-900 bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1" data-i18n="email_address">Email Address</label>
+                    <input type="email" id="reg-email" placeholder="john.doe@gmail.com"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-sm text-gray-900 bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1" data-i18n="password">Password</label>
+                    <input type="password" id="reg-password" placeholder="At least 6 characters"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-sm text-gray-900 bg-white">
+                </div>
+                
+                <div class="flex items-start gap-2 mt-3">
+                    <input type="checkbox" id="reg-terms" onchange="toggleRegButton()" class="mt-0.5 w-4 h-4 text-paypal-blue rounded border-gray-300 focus:ring-paypal-light cursor-pointer shrink-0">
+                    <label for="reg-terms" class="text-xs text-gray-600 cursor-pointer leading-relaxed">
+                        <span data-i18n="agree_terms">I have read and agree to the</span> <a href="#" class="text-paypal-light hover:underline font-semibold" data-i18n="user_agreement">User Agreement</a> <span data-i18n="and">and</span> <a href="#" class="text-paypal-light hover:underline font-semibold" data-i18n="privacy_policy">Privacy Policy</a>.
+                    </label>
+                </div>
+                
+                <div id="reg-loading" style="display: none;" class="text-center py-2 text-paypal-light font-semibold text-sm" data-i18n="processing_reg">Processing registration...</div>
+
+                <div class="flex gap-3 pt-3">
+                    <button type="button" onclick="closeRegisterModal()" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-full font-bold text-sm transition cursor-pointer" data-i18n="cancel">Cancel</button>
+                    <button type="button" onclick="handleRegisterSubmit(event)" id="reg-submit-btn" disabled class="w-2/3 bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3 rounded-full font-bold text-sm transition shadow-sm cursor-pointer opacity-50 cursor-not-allowed" data-i18n="sign_up">Sign Up</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Alert Modal -->
+    <div id="admin-alert-modal" style="display: none;" class="fixed inset-0 z-[130] bg-black/60 flex justify-center items-center px-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 relative text-center" style="background-color: #ffffff;">
+            <div class="w-14 h-14 bg-blue-100 text-paypal-light rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+            </div>
+            <h3 id="admin-alert-title" class="text-xl font-bold text-gray-900 mb-2">System Notice</h3>
+            <p id="admin-alert-body" class="text-sm text-gray-600 leading-relaxed mb-6"></p>
+            <button type="button" onclick="closeAdminAlertModal()" class="w-full bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3.5 rounded-xl font-bold text-sm transition cursor-pointer shadow-md" data-i18n="understood">Understood</button>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="info-modal" style="display: none;" class="fixed inset-0 z-[150] bg-black/50 flex justify-center items-center px-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-200 relative" style="background-color: #ffffff;">
+            <button type="button" onclick="closeInfoModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-2 cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <h3 id="info-modal-title" class="text-xl font-bold text-gray-900 mb-3" data-i18n="information">Information</h3>
+            <div id="info-modal-body" class="text-sm text-gray-600 leading-relaxed mb-6"></div>
+            <button type="button" onclick="closeInfoModal()" class="w-full bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3.5 rounded-full font-bold text-sm transition cursor-pointer" data-i18n="close">Close</button>
+        </div>
+    </div>
+
+    <!-- Add Contact Modal -->
+    <div id="add-contact-modal" style="display: none;" class="fixed inset-0 z-[125] bg-black/60 flex justify-center items-center px-4 overflow-y-auto py-10 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-gray-200 relative my-auto" style="background-color: #ffffff;">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+                <h3 id="contact-modal-title" class="text-xl font-bold text-gray-900" data-i18n="add_contact_title">Add Contact / Bank Account</h3>
+                <button type="button" onclick="closeAddContactModal()" class="text-gray-400 hover:text-gray-700 p-2 cursor-pointer">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="form-add-contact" onsubmit="handleSaveContact(event); return false;" class="space-y-4">
+                <input type="hidden" id="contact-edit-id" value="">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1" data-i18n="recipient_name_lbl">Recipient Name / Account Holder</label>
+                    <input type="text" id="contact-name-input" required placeholder="e.g. ALEX TURNER"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-sm text-gray-900 bg-white uppercase">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1" data-i18n="bank_name_lbl">Bank Name / PayPal</label>
+                    <select id="contact-bank-input" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-sm text-gray-900 bg-white cursor-pointer uppercase">
+                        <option value="PAYPAL">PAYPAL</option>
+                        <option value="BCA">BCA (Bank Central Asia)</option>
+                        <option value="MANDIRI">Bank Mandiri</option>
+                        <option value="BRI">BRI (Bank Rakyat Indonesia)</option>
+                        <option value="BSI">BSI (Bank Syariah Indonesia)</option>
+                        <option value="BNI">BNI (Bank Negara Indonesia)</option>
+                        <option value="CIMB">CIMB Niaga</option>
+                        <option value="PERMATA">Bank Permata</option>
+                        <option value="DANAMON">Bank Danamon</option>
+                        <option value="BTN">BTN (Bank Tabungan Negara)</option>
+                        <option value="BTPN">BTPN (Bank Tabungan Pensiunan Nasional)</option>
+                        <option value="OCBC">OCBC NISP</option>
+                        <option value="MAYBANK">Maybank Indonesia</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1" data-i18n="acc_num_lbl">Account / Card Number</label>
+                    <input type="text" id="contact-number-input" required placeholder="Enter account number"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-sm font-mono text-gray-900 bg-white">
+                </div>
+                <div class="flex gap-3 pt-3">
+                    <button type="button" onclick="closeAddContactModal()" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-full font-bold text-sm transition cursor-pointer" data-i18n="cancel">Cancel</button>
+                    <button type="submit" id="contact-submit-btn" class="w-2/3 bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3 rounded-full font-bold text-sm transition shadow-sm cursor-pointer" data-i18n="save_contact">Save Contact</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PIN Transfer Modal -->
+    <div id="pin-modal" style="display: none;" class="fixed inset-0 z-[160] bg-black/60 flex justify-center items-center px-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 relative text-center">
+            <button type="button" onclick="closePINModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-2 cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div class="w-14 h-14 bg-blue-100 text-paypal-blue rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2" data-i18n="enter_pin_title">Enter Transfer PIN</h3>
+            <p class="text-sm text-gray-600 mb-6" data-i18n="enter_pin_desc">Please enter your 6-digit PIN to confirm this transfer.</p>
+            <form onsubmit="verifyAndExecuteTransfer(event); return false;" class="space-y-4">
+                <input type="password" id="transfer-pin-input" required maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="••••••" class="w-full text-center tracking-[0.5em] px-4 py-4 text-2xl border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light focus:ring-1 focus:ring-paypal-light bg-gray-50">
+                <p id="pin-error-msg" class="text-red-600 text-xs hidden" data-i18n="pin_incorrect">Incorrect PIN. Please try again.</p>
+                <button type="submit" class="w-full bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3.5 rounded-full font-bold text-sm transition cursor-pointer shadow-md" data-i18n="confirm_transfer">Confirm Transfer</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change PIN Modal -->
+    <div id="change-pin-modal" style="display: none;" class="fixed inset-0 z-[160] bg-black/60 flex justify-center items-center px-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 relative">
+            <button type="button" onclick="closeChangePinModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-2 cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <h3 class="text-xl font-bold text-gray-900 mb-4" data-i18n="change_pin_title">Change PIN</h3>
+            <form onsubmit="handleSaveNewPin(event); return false;" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase mb-1" data-i18n="old_pin">Current PIN</label>
+                    <input type="password" id="old-pin-input" required maxlength="6" inputmode="numeric" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-center tracking-[0.3em] text-lg bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase mb-1" data-i18n="new_pin">New PIN</label>
+                    <input type="password" id="new-pin-input" required maxlength="6" inputmode="numeric" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-center tracking-[0.3em] text-lg bg-white">
+                </div>
+                <p id="change-pin-error" class="text-red-600 text-xs hidden"></p>
+                <button type="submit" class="w-full bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3.5 rounded-full font-bold text-sm transition cursor-pointer" data-i18n="save_new_pin">Save New PIN</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Receipt Modal -->
+    <div id="receipt-modal" style="display: none;" class="fixed inset-0 z-[170] bg-black/60 flex justify-center items-center px-4 overflow-y-auto py-10 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-gray-200 relative overflow-hidden my-auto">
+            <div class="bg-paypal-blue p-6 text-center text-white relative">
+                <button type="button" onclick="closeReceiptModal()" class="absolute top-4 right-4 text-white/80 hover:text-white p-1 cursor-pointer">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+                <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                    <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <h3 class="text-xl font-bold mb-1" data-i18n="transfer_success">Transfer Successful!</h3>
+                <p class="text-white/80 text-sm" id="receipt-date">Oct 24, 2026, 14:30 PM</p>
+            </div>
+            <div class="p-6 sm:p-8">
+                <div class="text-center mb-6 border-b border-dashed border-gray-300 pb-6">
+                    <p class="text-gray-500 text-xs mb-1 uppercase tracking-widest font-semibold" data-i18n="amount_sent">Amount Sent</p>
+                    <h2 class="text-4xl font-bold text-gray-900" id="receipt-amount">$0.00</h2>
+                    <p class="text-gray-400 text-xs mt-1">USD</p>
+                </div>
+                <div class="space-y-4 text-sm">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-500" data-i18n="status">Status</span>
+                        <span class="text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-200 text-xs uppercase" data-i18n="status_completed">Completed</span>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <span class="text-gray-500" data-i18n="from">From</span>
+                        <div class="text-right">
+                            <p class="font-bold text-gray-900 uppercase" id="receipt-sender-name">SENDER NAME</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <span class="text-gray-500" data-i18n="sent_to">Sent to</span>
+                        <div class="text-right">
+                            <p class="font-bold text-gray-900 uppercase" id="receipt-recipient">JOHN DOE</p>
+                            <p class="text-gray-500 text-xs uppercase" id="receipt-bank">PAYPAL</p>
+                        </div>
+                    </div>
+                    <div class="border-t border-gray-100 my-3"></div>
+                    <div class="flex justify-between items-start">
+                        <span class="text-gray-500" data-i18n="payment_method">Payment Method</span>
+                        <span class="text-gray-900 font-medium" data-i18n="paypal_balance">PayPal Balance</span>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <span class="text-gray-500" data-i18n="transaction_id">Transaction ID</span>
+                        <span class="font-mono text-gray-900 font-medium" id="receipt-id">TXN-123456789</span>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <span class="text-gray-500" data-i18n="note">Note</span>
+                        <span class="text-gray-900 text-right max-w-[150px] truncate" id="receipt-note">-</span>
+                    </div>
+                    <div class="border-t border-gray-100 my-3"></div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-500" data-i18n="fee">Fee</span>
+                        <span class="text-gray-900 font-medium">$0.00 USD</span>
+                    </div>
+                    <div class="flex justify-between items-center font-bold text-base mt-2">
+                        <span class="text-gray-900" data-i18n="total">Total</span>
+                        <span class="text-gray-900" id="receipt-total">$0.00 USD</span>
+                    </div>
+                </div>
+                <div class="mt-8 flex gap-3">
+                    <button type="button" onclick="closeReceiptModal()" class="w-1/4 bg-gray-100 hover:bg-gray-200 text-gray-600 py-3.5 rounded-xl transition cursor-pointer flex justify-center items-center" title="Download Receipt">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    </button>
+                    <button type="button" onclick="closeReceiptModal()" class="w-3/4 bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3.5 rounded-xl font-bold text-sm transition cursor-pointer shadow-md" data-i18n="done">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="more-modal" style="display: none;" class="fixed inset-0 z-[95] bg-black/50 flex justify-center items-end sm:items-center px-0 sm:px-4">
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-200" style="background-color: #ffffff;">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+                <h3 class="text-lg font-bold text-gray-900" data-i18n="more_options">More Options</h3>
+                <button type="button" onclick="closeMoreModal()" class="text-gray-400 hover:text-gray-700 p-2 cursor-pointer">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="space-y-2.5">
+                <button type="button" onclick="closeMoreModal(); switchTab('tab-wallet');" class="w-full text-left px-4 py-3.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 flex items-center gap-3 text-gray-800 font-medium border border-gray-100 cursor-pointer">
+                    <span class="w-8 h-8 rounded-full bg-blue-50 text-paypal-light flex items-center justify-center font-bold">W</span>
+                    <span data-i18n="open_wallet_bank">Open Wallet & Bank Accounts</span>
+                </button>
+                <button type="button" onclick="closeMoreModal(); switchTab('tab-aktivitas');" class="w-full text-left px-4 py-3.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 flex items-center gap-3 text-gray-800 font-medium border border-gray-100 cursor-pointer">
+                    <span class="w-8 h-8 rounded-full bg-blue-50 text-paypal-light flex items-center justify-center font-bold">A</span>
+                    <span data-i18n="open_activity">Activity History & Requests</span>
+                </button>
+                <button type="button" onclick="closeMoreModal(); switchTab('tab-kirim');" class="w-full text-left px-4 py-3.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 flex items-center gap-3 text-gray-800 font-medium border border-gray-100 cursor-pointer">
+                    <span class="w-8 h-8 rounded-full bg-blue-50 text-paypal-light flex items-center justify-center font-bold">S</span>
+                    <span data-i18n="open_send">Send or Request Payments</span>
+                </button>
+                <button type="button" onclick="closeMoreModal(); switchTab('tab-bantuan');" class="w-full text-left px-4 py-3.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 flex items-center gap-3 text-gray-800 font-medium border border-gray-100 cursor-pointer">
+                    <span class="w-8 h-8 rounded-full bg-blue-50 text-paypal-light flex items-center justify-center font-bold">H</span>
+                    <span data-i18n="open_help">Help Center & Conversion Fees</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bg-paypal-blue text-white w-full shadow-md z-40 relative">
+        <div class="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                
+                <div class="flex items-center gap-2 sm:gap-6">
+                    <button type="button" id="btn-mobile-menu" onclick="toggleMobileMenu(event)" class="md:hidden text-white hover:bg-white/10 active:bg-white/20 p-2.5 rounded-lg transition cursor-pointer">
+                        <svg class="w-7 h-7 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                    </button>
+
+                    <button type="button" class="flex-shrink-0 cursor-pointer text-left py-1 px-1" onclick="switchTab('tab-beranda')">
+                        <span class="text-white font-bold text-2xl tracking-tighter">PayPal</span>
+                    </button>
+                    
+                    <div class="hidden md:flex space-x-1">
+                        <button type="button" onclick="switchTab('tab-beranda')" id="nav-beranda" class="nav-btn bg-white/20 px-5 py-2.5 rounded-full text-[15px] font-medium transition cursor-pointer" data-i18n="nav_home">Home</button>
+                        <button type="button" onclick="switchTab('tab-kirim')" id="nav-kirim" class="nav-btn px-5 py-2.5 rounded-full text-[15px] font-medium hover:bg-white/10 transition cursor-pointer" data-i18n="nav_send">Send & Request</button>
+                        <button type="button" onclick="switchTab('tab-wallet')" id="nav-wallet" class="nav-btn px-5 py-2.5 rounded-full text-[15px] font-medium hover:bg-white/10 transition cursor-pointer" data-i18n="nav_wallet">Wallet</button>
+                        <button type="button" onclick="switchTab('tab-aktivitas')" id="nav-aktivitas" class="nav-btn px-5 py-2.5 rounded-full text-[15px] font-medium hover:bg-white/10 transition cursor-pointer" data-i18n="nav_activity">Activity</button>
+                        <button type="button" onclick="switchTab('tab-bantuan')" id="nav-bantuan" class="nav-btn px-5 py-2.5 rounded-full text-[15px] font-medium hover:bg-white/10 transition cursor-pointer" data-i18n="nav_help">Help</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-1 sm:space-x-3">
+                    <div class="relative">
+                        <button type="button" id="btn-notif" onclick="toggleNotif(event)" class="text-white hover:bg-white/10 active:bg-white/20 p-2.5 rounded-full transition cursor-pointer relative">
+                            <svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+                            <span id="notif-badge" style="display: none;" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-paypal-blue pointer-events-none"></span>
+                        </button>
+                        <div id="drop-notif" style="display: none;" class="fixed sm:absolute right-3 sm:right-0 top-16 sm:top-auto sm:mt-2 w-[92vw] max-w-xs sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 text-gray-800 z-50 py-2">
+                            <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+                                <h3 class="font-bold text-base text-gray-900" data-i18n="notifications">Notifications</h3>
+                                <button type="button" onclick="closeAllDropdowns(); switchTab('tab-aktivitas');" class="text-xs font-bold text-paypal-light hover:underline cursor-pointer" data-i18n="see_all">See All</button>
+                            </div>
+                            <div id="dynamic-notif-container" class="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                                <div class="p-4 text-center text-xs text-gray-500" data-i18n="no_notifications">No new notifications.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="relative">
+                        <button type="button" id="btn-setting" onclick="toggleSetting(event)" class="text-white hover:bg-white/10 active:bg-white/20 p-2.5 rounded-full transition cursor-pointer">
+                            <svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                        </button>
+                        <div id="drop-setting" style="display: none;" class="fixed sm:absolute right-3 sm:right-0 top-16 sm:top-auto sm:mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 text-gray-800 z-50 py-2">
+                            <div class="px-4 py-3 border-b border-gray-100">
+                                <p id="user-display-name" class="text-sm font-bold text-gray-900 uppercase">User Name</p>
+                                <p id="user-display-email" class="text-xs text-gray-500 truncate">email@domain.com</p>
+                                <span class="inline-block mt-1 text-[11px] font-light text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200" data-i18n="verified_account">Verified Account</span>
+                            </div>
+                            <button type="button" onclick="closeAllDropdowns(); switchTab('tab-wallet');" class="w-full text-left block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 cursor-pointer" data-i18n="settings_wallet">Wallet & Bank Settings</button>
+                            <button type="button" onclick="closeAllDropdowns(); openChangePinModal();" class="w-full text-left block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 cursor-pointer" data-i18n="settings_change_pin">Change Transfer PIN</button>
+                            <button type="button" onclick="closeAllDropdowns(); switchTab('tab-bantuan');" class="w-full text-left block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 cursor-pointer" data-i18n="settings_help">Help & Resolution Center</button>
+                            <button type="button" onclick="toggleLanguage();" class="w-full text-left px-4 py-3 text-sm text-paypal-blue font-bold hover:bg-gray-50 active:bg-gray-100 cursor-pointer flex items-center justify-between border-t border-gray-100">
+                                <span id="lang-menu-text">Switch to Indonesia</span>
+                                <span id="lang-indicator" class="text-xs bg-blue-100 text-paypal-blue px-2 py-0.5 rounded font-extrabold">EN</span>
+                            </button>
+                            <div class="border-t border-gray-100 pt-1">
+                                <button type="button" onclick="closeAllDropdowns(); doLogout();" class="w-full text-left block px-4 py-3 text-sm text-red-600 font-semibold hover:bg-gray-50 active:bg-gray-100 cursor-pointer" data-i18n="log_out">Log Out</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="doLogout()" class="text-white text-xs font-bold tracking-wide hover:underline uppercase py-2 px-2 cursor-pointer" data-i18n="log_out">Log Out</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="mobile-menu-dropdown" style="display: none;" class="md:hidden w-full bg-paypal-dark shadow-xl border-t border-blue-800 z-50">
+            <div class="px-4 py-3 space-y-1">
+                <button type="button" onclick="switchTabMobile('tab-beranda')" class="block w-full text-left py-3.5 px-4 text-white font-medium hover:bg-white/10 active:bg-white/20 rounded-lg cursor-pointer" data-i18n="nav_home">Home</button>
+                <button type="button" onclick="switchTabMobile('tab-kirim')" class="block w-full text-left py-3.5 px-4 text-white font-medium hover:bg-white/10 active:bg-white/20 rounded-lg cursor-pointer" data-i18n="nav_send">Send & Request</button>
+                <button type="button" onclick="switchTabMobile('tab-wallet')" class="block w-full text-left py-3.5 px-4 text-white font-medium hover:bg-white/10 active:bg-white/20 rounded-lg cursor-pointer">Wallet ($<span class="display-balance">0.00</span> USD)</button>
+                <button type="button" onclick="switchTabMobile('tab-aktivitas')" class="block w-full text-left py-3.5 px-4 text-white font-medium hover:bg-white/10 active:bg-white/20 rounded-lg cursor-pointer" data-i18n="nav_activity">Activity</button>
+                <button type="button" onclick="switchTabMobile('tab-bantuan')" class="block w-full text-left py-3.5 px-4 text-white font-medium hover:bg-white/10 active:bg-white/20 rounded-lg cursor-pointer" data-i18n="nav_help">Help</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- TAB BERANDA -->
+    <main id="tab-beranda" class="tab-content active max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="flex flex-col lg:flex-row gap-8">
+            <div class="w-full lg:w-[65%] space-y-4">
+                <div class="bg-white rounded-[14px] border border-gray-200 shadow-sm p-6">
+                    <p class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1" data-i18n="welcome_back">Welcome back,</p>
+                    <h1 id="home-user-name" class="text-2xl font-bold text-gray-900 mb-4 uppercase">User Name</h1>
+                    <div onclick="switchTab('tab-wallet')" class="cursor-pointer bg-gray-50 hover:bg-blue-50/50 p-4 rounded-xl border border-gray-200 transition">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-semibold text-gray-600" data-i18n="paypal_balance">PayPal Balance</span>
+                            <span class="text-xs font-bold text-paypal-light" data-i18n="view_wallet">View Wallet &rarr;</span>
+                        </div>
+                        <div class="text-3xl font-semibold text-gray-900 mb-1">$<span class="display-balance">0.00</span> <span class="text-lg font-normal text-gray-500">USD</span></div>
+                        <p id="home-primary-bank-text" class="text-xs text-gray-500" data-i18n="available_no_bank">Available • No bank connected yet</p>
+                    </div>
+                </div>
+
+                <div onclick="switchTab('tab-wallet'); openLinkBankModal('card');" class="bg-white rounded-[14px] border border-gray-200 shadow-sm p-6 flex gap-4 cursor-pointer hover:shadow-md active:bg-gray-50 transition">
+                    <div class="flex-shrink-0 mt-1">
+                        <svg class="w-7 h-7 text-paypal-light" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg text-gray-900 font-medium mb-1" data-i18n="link_credit_card">Link your credit card</h2>
+                        <p class="text-sm text-gray-600" data-i18n="link_card_desc">Keep your financial info secure when shopping online.</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-[14px] border border-gray-200 shadow-sm p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg text-gray-900 font-medium" data-i18n="recent_activity">Recent Activity</h2>
+                        <button type="button" onclick="switchTab('tab-aktivitas')" class="text-xs font-bold text-paypal-light hover:underline cursor-pointer" data-i18n="see_all">See All</button>
+                    </div>
+                    <div id="home-activity-preview" class="space-y-3">
+                        <div class="text-center py-4 text-gray-400 text-xs" data-i18n="loading_activity">Loading activity history...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full lg:w-[35%]">
+                <div class="grid grid-cols-4 gap-2 mb-10">
+                    <div class="flex flex-col items-center">
+                        <button type="button" onclick="switchTab('tab-kirim')" class="w-[60px] h-[60px] rounded-full bg-paypal-actionbg hover:bg-gray-200 active:bg-gray-300 transition flex items-center justify-center text-paypal-light shadow-sm cursor-pointer">
+                            <svg class="w-6 h-6 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                        </button>
+                        <span class="text-[13px] text-gray-800 mt-2 text-center leading-tight font-medium" data-i18n="send_request_btn">Send /<br>Request</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <button type="button" onclick="switchTab('tab-kirim')" class="w-[60px] h-[60px] rounded-full bg-paypal-actionbg hover:bg-gray-200 active:bg-gray-300 transition flex items-center justify-center text-paypal-light shadow-sm cursor-pointer">
+                            <svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                        </button>
+                        <span class="text-[13px] text-gray-800 mt-2 text-center leading-tight font-medium" data-i18n="invoice_btn">Create<br>invoice</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <button type="button" onclick="switchTab('tab-wallet'); openLinkBankModal('bank');" class="w-[60px] h-[60px] rounded-full bg-paypal-actionbg hover:bg-gray-200 active:bg-gray-300 transition flex items-center justify-center text-paypal-light shadow-sm cursor-pointer">
+                            <svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3zm-8-7L11.5 1 21 5v2H2V5l9-2z"/></svg>
+                        </button>
+                        <span class="text-[13px] text-gray-800 mt-2 text-center leading-tight font-medium" data-i18n="add_bank_btn">Add<br>bank</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <button type="button" onclick="openMoreModal()" class="w-[60px] h-[60px] rounded-full bg-paypal-actionbg hover:bg-gray-200 active:bg-gray-300 transition flex items-center justify-center text-gray-700 shadow-sm cursor-pointer">
+                            <svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                        </button>
+                        <span class="text-[13px] text-gray-800 mt-2 text-center leading-tight font-medium" data-i18n="more_btn">More</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB WALLET -->
+    <main id="tab-wallet" class="tab-content max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="flex flex-col items-center mb-10">
+            <div class="relative w-32 h-24 mb-4">
+                <div class="absolute inset-0 bg-blue-100 rounded-xl transform -rotate-6"></div>
+                <div class="absolute inset-0 bg-paypal-light rounded-xl flex items-center justify-center border-b-4 border-blue-600">
+                    <div class="w-24 h-1 bg-blue-300 rounded absolute top-4 left-4"></div>
+                    <div class="w-16 h-1 bg-blue-300 rounded absolute top-8 left-4"></div>
+                </div>
+                <div class="absolute -bottom-2 -right-2 bg-teal-400 text-white rounded-full p-1.5 shadow-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                </div>
+            </div>
+            <h1 id="wallet-user-title" class="text-2xl sm:text-3xl font-medium text-gray-900 mb-2 text-center uppercase">USER WALLET</h1>
+            <p class="text-gray-600 text-center max-w-lg mb-6 text-sm sm:text-base" data-i18n="wallet_subtitle">Connect your cards and bank accounts to easily make secure purchases online or send money worldwide.</p>
+            <button type="button" onclick="openLinkBankModal('bank')" class="bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white px-6 py-3 rounded-full font-bold text-sm transition shadow-sm cursor-pointer" data-i18n="link_card_bank_btn">Link a card or bank</button>
+        </div>
+
+        <div id="wallet-link-form-container" style="display: none;" class="mb-10 bg-white border border-blue-200 rounded-2xl p-6 sm:p-8 shadow-md max-w-xl mx-auto relative">
+            <button type="button" onclick="closeLinkBankModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-2 cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <h2 id="wallet-form-title" class="text-xl font-bold text-gray-900 mb-1" data-i18n="add_payment_method">Add Payment Method</h2>
+            <p id="wallet-form-subtitle" class="text-xs text-gray-500 mb-5" data-i18n="add_payment_sub">Enter your bank account or card details to link to your account.</p>
+
+            <div id="wallet-form-tabs" class="flex border-b border-gray-200 mb-6">
+                <button type="button" id="subtab-btn-bank" onclick="switchLinkFormType('bank')" class="flex-1 py-3 text-sm font-bold border-b-2 border-paypal-blue text-paypal-blue transition cursor-pointer" data-i18n="bank_account_tab">Bank Account</button>
+                <button type="button" id="subtab-btn-card" onclick="switchLinkFormType('card')" class="flex-1 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition cursor-pointer" data-i18n="card_tab">Debit / Credit Card</button>
+            </div>
+
+            <form id="form-link-bank" onsubmit="handleLinkBankSubmit(event); return false;" class="space-y-4">
+                <input type="hidden" id="link-item-id" value="">
+                <input type="hidden" id="link-item-type" value="bank">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5" id="label-bank-owner" data-i18n="acc_holder_lbl">Account Holder Name</label>
+                    <input type="text" id="input-bank-owner" required placeholder="e.g. YOUR NAME"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light focus:ring-1 focus:ring-paypal-light text-sm text-gray-900 bg-white uppercase">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5" id="label-bank-name" data-i18n="bank_issuer_lbl">Bank Name / Issuer</label>
+                    <select id="input-bank-name" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light text-sm text-gray-900 bg-white cursor-pointer uppercase">
+                        <option value="BCA">BCA (Bank Central Asia)</option>
+                        <option value="MANDIRI">Bank Mandiri</option>
+                        <option value="BRI">BRI (Bank Rakyat Indonesia)</option>
+                        <option value="BSI">BSI (Bank Syariah Indonesia)</option>
+                        <option value="BNI">BNI (Bank Negara Indonesia)</option>
+                        <option value="CIMB">CIMB Niaga</option>
+                        <option value="PERMATA">Bank Permata</option>
+                        <option value="DANAMON">Bank Danamon</option>
+                        <option value="BTN">BTN (Bank Tabungan Negara)</option>
+                        <option value="BTPN">BTPN (Bank Tabungan Pensiunan Nasional)</option>
+                        <option value="OCBC">OCBC NISP</option>
+                        <option value="MAYBANK">Maybank Indonesia</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5" id="label-bank-number" data-i18n="acc_num_lbl_wallet">Account / Card Number</label>
+                    <input type="text" id="input-bank-number" required placeholder="Enter account or card number"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-paypal-light focus:ring-1 focus:ring-paypal-light text-sm font-mono text-gray-900 bg-white">
+                </div>
+
+                <div class="flex items-center gap-2 pt-1">
+                    <input type="checkbox" id="input-make-primary" class="w-4 h-4 text-paypal-blue rounded border-gray-300 focus:ring-paypal-light cursor-pointer">
+                    <label for="input-make-primary" class="text-xs text-gray-700 font-medium cursor-pointer" data-i18n="set_primary_lbl">Set as primary payment method</label>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeLinkBankModal()" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-full font-bold text-sm transition cursor-pointer" data-i18n="cancel">Cancel</button>
+                    <button type="submit" id="wallet-submit-btn" class="w-2/3 bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-3 rounded-full font-bold text-sm transition shadow-sm cursor-pointer" data-i18n="save_link">Save & Link</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="border-t border-gray-200 py-8">
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="w-full md:w-[35%]">
+                    <div class="flex justify-center gap-12 mb-8 border-b border-gray-200 pb-8">
+                        <button type="button" onclick="openLinkBankModal('bank')" class="flex flex-col items-center gap-3 cursor-pointer hover:opacity-80">
+                            <div class="w-12 h-12 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center relative shadow-sm">
+                                <svg class="w-6 h-6 text-paypal-light" fill="currentColor" viewBox="0 0 24 24"><path d="M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3zm-8-7L11.5 1 21 5v2H2V5l9-2z"/></svg>
+                                <div class="absolute bottom-0 right-0 w-4 h-4 bg-paypal-light rounded-full border border-white flex items-center justify-center text-white font-bold text-[10px]">+</div>
+                            </div>
+                            <span class="text-xs font-medium text-gray-700" data-i18n="link_bank">Link bank</span>
+                        </button>
+                        <button type="button" onclick="openLinkBankModal('card')" class="flex flex-col items-center gap-3 cursor-pointer hover:opacity-80">
+                            <div class="w-12 h-12 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center relative shadow-sm">
+                                <svg class="w-6 h-6 text-paypal-light" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+                            </div>
+                            <span class="text-xs font-medium text-gray-700" data-i18n="link_card">Link card</span>
+                        </button>
+                    </div>
+                    <div id="wallet-methods-list" class="space-y-3"></div>
+                </div>
+
+                <div class="w-full md:w-[65%] flex flex-col items-center mt-2 md:mt-0 relative min-h-[400px]">
+                    <div id="panel-saldo" style="display: flex;" class="w-full flex-col items-center">
+                        <div class="w-16 h-12 border border-gray-200 rounded flex items-center justify-center mb-5 bg-white shadow-sm">
+                            <span class="text-paypal-light font-bold italic text-2xl" style="font-family: serif;">P</span>
+                        </div>
+                        <h3 class="text-gray-600 font-medium mb-1 text-sm" data-i18n="paypal_balance">PayPal Balance</h3>
+                        <div class="text-[34px] sm:text-[40px] font-normal text-gray-900 tracking-tight text-center">$<span class="display-balance">0.00</span> <span class="text-2xl text-gray-500 font-light">USD</span></div>
+                        <p class="text-gray-600 text-sm mb-6" data-i18n="available">Available</p>
+                        <button type="button" onclick="showConversionNotice()" class="bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white px-8 py-3 rounded-full font-bold text-[13px] transition mb-6 shadow-sm cursor-pointer" data-i18n="transfer_funds">Transfer Funds</button>
+                        <div class="flex gap-8 text-[13px] font-bold text-paypal-light mb-10">
+                            <button type="button" onclick="showConversionNotice()" class="hover:underline cursor-pointer" data-i18n="add_currency">Add currency</button>
+                            <button type="button" onclick="showConversionNotice()" class="hover:underline cursor-pointer" data-i18n="currency_calc">Currency Calculator</button>
+                        </div>
+                        <div id="saldo-primary-section" class="text-center max-w-md border-t border-gray-100 pt-8 w-full"></div>
+                    </div>
+
+                    <div id="panel-bank-detail" style="display: none;" class="w-full flex-col items-center"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB KIRIM & MINTA -->
+    <main id="tab-kirim" class="tab-content bg-white min-h-[600px] border-t border-gray-200">
+        <div class="border-b border-gray-200 w-full mb-8">
+            <div class="max-w-[1000px] mx-auto px-4 flex gap-6 overflow-x-auto">
+                <button type="button" onclick="switchSendSubTab('send')" id="send-tab-btn" class="py-4 border-b-2 border-paypal-blue font-bold text-paypal-blue text-[15px] whitespace-nowrap cursor-pointer" data-i18n="send_tab">Send</button>
+                <button type="button" onclick="switchSendSubTab('request')" id="request-tab-btn" class="py-4 border-b-2 border-transparent text-gray-600 hover:text-paypal-blue font-medium text-[15px] transition whitespace-nowrap cursor-pointer" data-i18n="request_tab">Request</button>
+                <button type="button" onclick="switchSendSubTab('contacts')" id="contacts-tab-btn" class="py-4 border-b-2 border-transparent text-gray-600 hover:text-paypal-blue font-medium text-[15px] transition whitespace-nowrap cursor-pointer" data-i18n="contacts_tab">Contacts</button>
+                <button type="button" onclick="openMoreModal()" class="py-4 border-b-2 border-transparent text-gray-600 hover:text-paypal-blue font-medium text-[15px] transition whitespace-nowrap cursor-pointer" data-i18n="more_tab">More</button>
+            </div>
+        </div>
+        
+        <!-- SEND SUB-TAB -->
+        <div id="send-view-container">
+            <div id="send-step-search" class="max-w-[600px] mx-auto px-4 text-center mt-8 pb-12">
+                <h2 class="text-[24px] sm:text-[28px] font-medium text-gray-900 mb-6" data-i18n="send_payment_to">Send payment to</h2>
+                <div class="relative mb-6">
+                    <input type="text" id="input-kirim-tujuan" placeholder="name or bank" class="w-full border border-gray-400 rounded-full py-4 pl-6 pr-12 text-base sm:text-lg focus:outline-none focus:ring-1 focus:ring-paypal-light focus:border-paypal-light shadow-sm bg-white text-black text-center font-light placeholder-gray-400 lowercase">
+                    <button type="button" onclick="openAddContactModal()" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-paypal-light p-2 cursor-pointer" title="Add Contact">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </button>
+                </div>
+
+                <div class="flex justify-between items-center mb-3">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider" data-i18n="saved_contacts">Saved Contacts & Accounts</p>
+                    <button type="button" onclick="openAddContactModal()" class="text-xs font-bold text-paypal-light hover:underline cursor-pointer" data-i18n="add_contact_btn">+ Add Contact</button>
+                </div>
+
+                <div id="saved-contacts-container" class="space-y-3 text-left mb-6"></div>
+            </div>
+
+            <div id="send-step-amount" style="display: none;" class="max-w-[500px] mx-auto px-4 text-center mt-6 pb-12">
+                <div class="inline-flex items-center gap-3 bg-gray-50 border border-gray-200 px-5 py-2.5 rounded-full mb-6 shadow-sm">
+                    <div class="w-8 h-8 rounded-full bg-[#003B6D] text-white flex items-center justify-center font-extrabold text-[9px]" id="selected-contact-badge">P</div>
+                    <div class="text-left">
+                        <p id="amount-recipient-name" class="text-xs font-bold text-gray-900 uppercase">Recipient</p>
+                        <p id="amount-recipient-bank" class="text-[11px] text-gray-500 font-mono">PayPal</p>
+                    </div>
+                    <button type="button" onclick="resetSendForm()" class="text-xs text-paypal-light font-bold hover:underline ml-3 cursor-pointer" data-i18n="change">Change</button>
+                </div>
+
+                <h2 class="text-xl font-medium text-gray-900 mb-2" data-i18n="how_much_send">How much do you want to send?</h2>
+                
+                <div class="my-6">
+                    <div class="flex justify-center items-center gap-2">
+                        <span class="text-4xl font-light text-gray-400">$</span>
+                        <input type="text" id="transfer-amount" value="0.00" oninput="formatCurrencyInput(this)" class="text-4xl sm:text-5xl font-semibold text-gray-900 text-center w-64 border-none focus:outline-none bg-transparent">
+                        <span class="text-xl font-medium text-gray-500">USD</span>
+                    </div>
+                </div>
+
+                <div class="mb-6" id="note-container">
+                    <input type="text" id="transfer-note" placeholder="Add a note (optional)" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-paypal-light bg-white" data-i18n-placeholder="note_placeholder">
+                </div>
+
+                <div id="qris-container" style="display: none;" class="mb-6 text-center">
+                </div>
+
+                <!-- Modifikasi: memanggil fungsi prepareMoneyTransfer sebelum mengeksekusi -->
+                <button type="button" id="btn-send-payment" onclick="prepareMoneyTransfer()" class="w-full bg-paypal-blue hover:bg-blue-900 active:bg-blue-950 text-white py-4 rounded-full text-[17px] font-bold transition cursor-pointer shadow-md" data-i18n="send_payment_now">Send Payment Now</button>
+                <button type="button" id="btn-cancel-payment" onclick="resetSendForm()" style="display: none;" class="w-full mt-3 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3.5 rounded-full text-[15px] font-bold transition cursor-pointer shadow-sm" data-i18n="cancel">Cancel</button>
+            </div>
+        </div>
+
+        <!-- REQUEST SUB-TAB -->
+        <div id="request-view-container" style="display: none;" class="max-w-[700px] mx-auto px-4 py-8">
+            <h2 class="text-[24px] sm:text-[28px] font-medium text-gray-900 mb-6 text-center" data-i18n="request_payment_from">Request payment from</h2>
+            <div class="flex justify-between items-center mb-3">
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-wider" data-i18n="saved_contacts">Saved Contacts & Accounts</p>
+                <button type="button" onclick="openAddContactModal()" class="text-xs font-bold text-paypal-light hover:underline cursor-pointer" data-i18n="add_contact_btn">+ Add Contact</button>
+            </div>
+            <div id="request-contacts-container" class="space-y-3 text-left mb-6"></div>
+        </div>
+
+        <!-- CONTACTS SUB-TAB -->
+        <div id="contacts-view-container" style="display: none;" class="max-w-[700px] mx-auto px-4 py-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-[24px] sm:text-[28px] font-medium text-gray-900" data-i18n="nav_contacts">Contacts</h2>
+                <button type="button" onclick="openAddContactModal()" class="bg-paypal-blue text-white px-5 py-2.5 rounded-full font-bold text-sm shadow-sm cursor-pointer hover:bg-blue-900" data-i18n="add_contact_btn">+ Add Contact</button>
+            </div>
+            <div id="full-contacts-container" class="space-y-3"></div>
+        </div>
+    </main>
+
+    <!-- TAB AKTIVITAS -->
+    <main id="tab-aktivitas" class="tab-content max-w-[1000px] mx-auto px-4 py-8">
+        <h1 class="text-2xl sm:text-3xl font-medium text-gray-900 mb-6" data-i18n="activity_title">Activity</h1>
+        <div class="flex flex-wrap justify-between items-center mb-6 gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+            <div class="flex items-center border border-gray-300 rounded-full px-4 py-2 bg-gray-50 flex-1 min-w-[200px]">
+                <svg class="w-5 h-5 text-gray-400 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input type="text" placeholder="Search activity" class="bg-transparent border-none focus:outline-none w-full text-sm text-gray-800" data-i18n-placeholder="search_activity">
+            </div>
+            <div class="flex gap-2">
+                <button type="button" onclick="fetchUserDataFromSupabase()" class="border border-gray-300 rounded-full px-5 py-2 text-sm font-medium hover:bg-gray-50 active:bg-gray-100 transition cursor-pointer" data-i18n="refresh">Refresh</button>
+            </div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-8">
+            <h2 class="bg-gray-50 text-gray-700 font-semibold px-6 py-3 border-b border-gray-200 text-sm" data-i18n="activity_history_header">Activity & Login History</h2>
+            <div id="dynamic-activity-container">
+                <div class="p-8 text-center text-gray-500" data-i18n="loading_activity">Loading activity history...</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB BANTUAN -->
+    <main id="tab-bantuan" class="tab-content max-w-[1000px] mx-auto px-4 py-8">
+        <div class="bg-paypal-blue rounded-2xl p-6 sm:p-10 text-white text-center shadow-md mb-8">
+            <h1 class="text-2xl sm:text-3xl font-medium mb-6" data-i18n="help_title">How can we help?</h1>
+            <div class="max-w-2xl mx-auto relative">
+                <input type="text" placeholder="Tell us how we can help" class="w-full py-3.5 sm:py-4 pl-12 pr-4 rounded-full text-gray-900 text-base sm:text-lg focus:outline-none shadow-sm bg-white" data-i18n-placeholder="help_placeholder">
+                <svg class="w-6 h-6 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <button type="button" onclick="openInfoModal('Resolution Center', 'No active disputes found on your account. Your profile verification status is approved.')" class="text-left bg-white p-6 border border-gray-200 rounded-xl hover:shadow-md active:bg-gray-50 cursor-pointer transition">
+                <svg class="w-8 h-8 text-paypal-light mb-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                <h3 class="text-lg font-bold text-gray-900 mb-2" data-i18n="resolution_center">Resolution Center</h3>
+                <p class="text-sm text-gray-600" data-i18n="resolution_desc">Resolve transaction disputes or report account issues.</p>
+            </button>
+            <button type="button" onclick="showConversionNotice()" class="text-left bg-white p-6 border border-blue-300 rounded-xl hover:shadow-md active:bg-gray-50 cursor-pointer transition ring-1 ring-blue-100">
+                <svg class="w-8 h-8 text-paypal-light mb-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+                <h3 class="text-lg font-bold text-gray-900 mb-2" data-i18n="conversion_fees">Conversion Fees</h3>
+                <p class="text-sm text-gray-600" data-i18n="conversion_desc">To access your full wallet, a currency conversion fee of 1% applies.</p>
+            </button>
+            <button type="button" onclick="openInfoModal('Account Security', 'Your account is fully protected with PayPal encryption security and securely connected to Supabase.')" class="text-left bg-white p-6 border border-gray-200 rounded-xl hover:shadow-md active:bg-gray-50 cursor-pointer transition">
+                <svg class="w-8 h-8 text-paypal-light mb-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v2h-2V7zm1 10c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2 z"/></svg>
+                <h3 class="text-lg font-bold text-gray-900 mb-2" data-i18n="security">Security</h3>
+                <p class="text-sm text-gray-600" data-i18n="security_desc">Report unauthorized access and protect your account.</p>
+            </button>
+        </div>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-12 py-8 w-full z-10">
+        <div class="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+            <!-- Bagian Hak Cipta & Info Legal -->
+            <div class="text-center md:text-left text-xs text-gray-500 space-y-1.5">
+                <p>&copy; 2026 PayPal. <span data-i18n="footer_copyright">All rights reserved.</span></p>
+                <p data-i18n="footer_security">Secure transactions backed by high-level encryption systems.</p>
+            </div>
+
+            <!-- Bagian Ikon Metode Pembayaran -->
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <span class="text-xs text-gray-500 font-medium" data-i18n="footer_payment_methods">Payment Methods:</span>
+                <div class="flex items-center gap-3">
+                    <!-- Ikon PayPal -->
+                    <div class="w-12 h-8 bg-white border border-gray-200 rounded-md flex items-center justify-center shadow-sm px-1">
+                        <span class="text-[13px] font-bold text-[#003087] italic tracking-tighter">PayPal</span>
+                    </div>
+                    <!-- Ikon Mastercard -->
+                    <div class="w-12 h-8 bg-white border border-gray-200 rounded-md flex items-center justify-center relative shadow-sm overflow-hidden">
+                        <div class="w-4 h-4 bg-[#EB001B] rounded-full absolute left-2 opacity-90 mix-blend-multiply"></div>
+                        <div class="w-4 h-4 bg-[#F79E1B] rounded-full absolute right-2 opacity-90 mix-blend-multiply"></div>
+                    </div>
+                    <!-- Ikon Visa -->
+                    <div class="w-12 h-8 bg-white border border-gray-200 rounded-md flex items-center justify-center shadow-sm">
+                        <span class="text-[13px] font-bold text-[#1434CB] italic tracking-tighter">VISA</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        var SUPABASE_URL = 'https://heaedfjyjpfvpddtgjhk.supabase.co';
+        var SUPABASE_KEY = 'sb_publishable_uuIu1DiiNhS4aHc3ZSxqrg_F4punPvO';
+        
+        var supabaseClient = null;
+        try {
+            if (window.supabase) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            }
+        } catch(e) { console.error('Supabase init error:', e); }
+
+        var memoryStore = {};
+        function safeRead(key, fallback) {
+            try {
+                var store = window['local' + 'Storage'];
+                if (store) {
+                    var val = store.getItem(key);
+                    if (val !== null && val !== undefined) return val;
+                }
+            } catch (e) {}
+            return (memoryStore[key] !== undefined) ? memoryStore[key] : fallback;
+        }
+
+        function safeWrite(key, value) {
+            memoryStore[key] = String(value);
+            try {
+                var store = window['local' + 'Storage'];
+                if (store) store.setItem(key, String(value));
+            } catch (e) {}
+        }
+
+        function formatMoney(amount) {
+            var num = parseFloat(String(amount).replace(/[^0-9.-]+/g,"")) || 0;
+            return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatCurrencyInput(input) {
+            var val = input.value.replace(/[^0-9.]/g, '');
+            var parts = val.split('.');
+            if (parts.length > 2) {
+                parts[1] = parts.slice(1).join('');
+                parts = [parts[0], parts[1]];
+            }
+            var intPart = parts[0];
+            var decPart = parts.length > 1 ? '.' + parts[1].substring(0, 2) : '';
+            
+            if (intPart) {
+                intPart = intPart.replace(/^0+/, '');
+                if (intPart === '') intPart = '0';
+                intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            } else {
+                intPart = '0';
+            }
+            input.value = intPart + decPart;
+        }
+        window.formatCurrencyInput = formatCurrencyInput;
+
+        var currentLang = safeRead('paypal_lang', 'en');
+        var translations = {
+            en: {
+                forgot_email: "Forgot email?", next: "Next", or: "or", sign_up: "Sign Up", change: "Change",
+                enter_password: "Enter your password", forgot_password: "Forgot password?", log_in: "Log In",
+                loading: "Loading...", create_account: "Create Account", full_name: "Full Name", dob: "Date of Birth",
+                email_address: "Email Address", password: "Password", agree_terms: "I have read and agree to the",
+                user_agreement: "User Agreement", and: "and", privacy_policy: "Privacy Policy", processing_reg: "Processing registration...",
+                cancel: "Cancel", understood: "Understood", add_contact_title: "Add Contact / Bank Account",
+                recipient_name_lbl: "Recipient Name / Account Holder", bank_name_lbl: "Bank Name / PayPal",
+                acc_num_lbl: "Account Number", save_contact: "Save Contact", information: "Information", close: "Close",
+                more_options: "More Options", open_wallet_bank: "Open Wallet & Bank Accounts", open_activity: "Activity History & Requests",
+                open_send: "Send or Request Payments", open_help: "Help Center & Conversion Fees", nav_home: "Home",
+                nav_send: "Send & Request", nav_wallet: "Wallet", nav_activity: "Activity", nav_help: "Help",
+                notifications: "Notifications", see_all: "See All", no_notifications: "No new notifications.",
+                verified_account: "Verified Account", settings_wallet: "Wallet & Bank Settings", settings_help: "Help & Resolution Center",
+                lang_switch_text: "Switch to Indonesia", log_out: "Log Out", welcome_back: "Welcome back,",
+                paypal_balance: "PayPal Balance", view_wallet: "View Wallet →", available_no_bank: "Available • No bank connected yet",
+                link_credit_card: "Link your credit card", link_card_desc: "Keep your financial info secure when shopping online.",
+                recent_activity: "Recent Activity", send_request_btn: "Send / Request", invoice_btn: "Create invoice",
+                add_bank_btn: "Add bank", more_btn: "More", wallet_subtitle: "Connect your cards and bank accounts to easily make secure purchases online or send money worldwide.",
+                link_card_bank_btn: "Link a card or bank", add_payment_method: "Add Payment Method", add_payment_sub: "Enter your bank account or card details to link to your account.",
+                bank_account_tab: "Bank Account", card_tab: "Debit / Credit Card", acc_holder_lbl: "Account Holder Name",
+                bank_issuer_lbl: "Bank Name / Issuer", acc_num_lbl_wallet: "Account / Card Number", set_primary_lbl: "Set as primary payment method",
+                save_link: "Save & Link", link_bank: "Link bank", link_card: "Link card", available: "Available",
+                transfer_funds: "Transfer Funds", add_currency: "Add currency", currency_calc: "Currency Calculator",
+                send_tab: "Send", request_tab: "Request", contacts_tab: "Contacts", more_tab: "More",
+                send_payment_to: "Send payment to", saved_contacts: "Saved Contacts & Accounts", add_contact_btn: "+ Add Contact",
+                how_much_send: "How much do you want to send?", note_placeholder: "Add a note (optional)",
+                send_payment_now: "Send Payment Now", request_payment_from: "Request payment from", nav_contacts: "Contacts",
+                activity_title: "Activity", search_activity: "Search activity", refresh: "Refresh",
+                activity_history_header: "Activity & Login History", loading_activity: "Loading activity history...",
+                help_title: "How can we help?", help_placeholder: "Tell us how we can help", resolution_center: "Resolution Center",
+                resolution_desc: "Resolve transaction disputes or report account issues.", conversion_fees: "Conversion Fees",
+                conversion_desc: "To access your full wallet, a currency conversion fee of 1% applies.", security: "Security",
+                security_desc: "Report unauthorized access and protect your account.",
+                settings_change_pin: "Change Transfer PIN", enter_pin_title: "Enter Transfer PIN", enter_pin_desc: "Please enter your 6-digit PIN to confirm this transfer.",
+                pin_incorrect: "Incorrect PIN. Please try again.", confirm_transfer: "Confirm Transfer", change_pin_title: "Change PIN",
+                old_pin: "Current PIN", new_pin: "New PIN", save_new_pin: "Save New PIN", transfer_success: "Transfer Successful!",
+                amount_sent: "Amount Sent", sent_to: "Sent to", transaction_id: "Transaction ID", note: "Note", done: "Done",
+                status: "Status", status_completed: "Completed", from: "From", payment_method: "Payment Method", fee: "Fee", total: "Total",
+                footer_copyright: "All rights reserved.", footer_security: "Secure transactions backed by high-level encryption systems.",
+                footer_payment_methods: "Payment Methods:"
+            },
+            id: {
+                forgot_email: "Lupa email?", next: "Berikutnya", or: "atau", sign_up: "Daftar", change: "Ubah",
+                enter_password: "Masukkan kata sandi", forgot_password: "Lupa kata sandi?", log_in: "Log In",
+                loading: "Memuat...", create_account: "Buat Akun", full_name: "Nama Lengkap", dob: "Tanggal Lahir",
+                email_address: "Alamat Email", password: "Kata Sandi", agree_terms: "Saya telah membaca dan menyetujui",
+                user_agreement: "Perjanjian Pengguna", and: "dan", privacy_policy: "Kebijakan Privasi", processing_reg: "Memproses pendaftaran...",
+                cancel: "Batal", understood: "Mengerti", add_contact_title: "Tambah Kontak / Rekening Bank",
+                recipient_name_lbl: "Nama Penerima / Pemilik Rekening", bank_name_lbl: "Nama Bank / PayPal",
+                acc_num_lbl: "Nomor Rekening", save_contact: "Simpan Kontak", information: "Informasi", close: "Tutup",
+                more_options: "Opsi Lainnya", open_wallet_bank: "Buka Wallet & Rekening Bank", open_activity: "Riwayat Aktivitas & Permintaan",
+                open_send: "Kirim atau Minta Pembayaran", open_help: "Pusat Bantuan & Biaya Konversi", nav_home: "Beranda",
+                nav_send: "Kirim & Minta", nav_wallet: "Wallet", nav_activity: "Aktivitas", nav_help: "Bantuan",
+                notifications: "Notifikasi", see_all: "Lihat Semua", no_notifications: "Tidak ada notifikasi baru.",
+                verified_account: "Verified Account", settings_wallet: "Pengaturan Wallet & Bank", settings_help: "Pusat Bantuan & Resolusi",
+                lang_switch_text: "Switch to English", log_out: "Keluar", welcome_back: "Selamat datang kembali,",
+                paypal_balance: "Saldo PayPal", view_wallet: "Lihat Wallet →", available_no_bank: "Tersedia • Belum ada bank terhubung",
+                link_credit_card: "Hubungkan kartu kredit Anda", link_card_desc: "Jaga keamanan informasi keuangan Anda saat berbelanja online.",
+                recent_activity: "Aktivitas Terkini", send_request_btn: "Kirim / Minta", invoice_btn: "Buat faktur",
+                add_bank_btn: "Tambah bank", more_btn: "Lainnya", wallet_subtitle: "Hubungkan kartu dan rekening bank Anda untuk melakukan pembelian online secara aman atau mengirim uang ke seluruh dunia.",
+                link_card_bank_btn: "Hubungkan kartu atau bank", add_payment_method: "Tambah Metode Pembayaran", add_payment_sub: "Masukkan rekening bank atau detail kartu untuk dihubungkan ke akun Anda.",
+                bank_account_tab: "Rekening Bank", card_tab: "Kartu Debit / Kredit", acc_holder_lbl: "Nama Pemilik Rekening",
+                bank_issuer_lbl: "Nama Bank", acc_num_lbl_wallet: "Nomor Rekening", set_primary_lbl: "Jadikan sebagai metode pembayaran utama",
+                save_link: "Simpan & Hubungkan", link_bank: "Hubungkan bank", link_card: "Hubungkan kartu", available: "Tersedia",
+                transfer_funds: "Transfer Dana", add_currency: "Tambah mata uang", currency_calc: "Kalkulator Kurs",
+                send_tab: "Kirim", request_tab: "Minta", contacts_tab: "Kontak", more_tab: "Lainnya",
+                send_payment_to: "Kirim pembayaran ke", saved_contacts: "Kontak & Rekening Tersimpan", add_contact_btn: "+ Tambah Kontak",
+                how_much_send: "Berapa yang ingin Anda kirim?", note_placeholder: "Tambahkan catatan (opsional)",
+                send_payment_now: "Kirim Pembayaran Sekarang", request_payment_from: "Minta pembayaran dari", nav_contacts: "Kontak",
+                activity_title: "Aktivitas", search_activity: "Cari aktivitas", refresh: "Segarkan",
+                activity_history_header: "Riwayat Aktivitas & Login", loading_activity: "Memuat riwayat aktivitas...",
+                help_title: "Bagaimana kami dapat membantu?", help_placeholder: "Beri tahu kami bagaimana kami dapat membantu", resolution_center: "Pusat Resolusi",
+                resolution_desc: "Selesaikan sengketa transaksi atau laporkan masalah akun.", conversion_fees: "Biaya Konversi",
+                conversion_desc: "Untuk mengakses wallet penuh, berlaku biaya konversi mata uang sebesar 1%.", security: "Keamanan",
+                security_desc: "Laporkan akses tidak sah dan amankan akun Anda.",
+                settings_change_pin: "Ubah PIN Transfer", enter_pin_title: "Masukkan PIN Transfer", enter_pin_desc: "Silakan masukkan 6 digit PIN untuk mengonfirmasi transfer ini.",
+                pin_incorrect: "PIN salah. Silakan coba lagi.", confirm_transfer: "Konfirmasi Transfer", change_pin_title: "Ubah PIN",
+                old_pin: "PIN Saat Ini", new_pin: "PIN Baru", save_new_pin: "Simpan PIN Baru", transfer_success: "Transfer Berhasil!",
+                amount_sent: "Jumlah Dikirim", sent_to: "Dikirim ke", transaction_id: "ID Transaksi", note: "Catatan", done: "Selesai",
+                status: "Status", status_completed: "Selesai", from: "Dari", payment_method: "Metode Pembayaran", fee: "Biaya", total: "Total",
+                footer_copyright: "Hak Cipta Dilindungi Undang-Undang.", footer_security: "Transaksi aman didukung oleh sistem enkripsi tingkat tinggi.",
+                footer_payment_methods: "Metode Pembayaran:"
+            }
+        };
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            safeWrite('paypal_lang', lang);
+            var indicator = document.getElementById('lang-indicator');
+            var menuText = document.getElementById('lang-menu-text');
+            if (indicator) indicator.innerText = lang.toUpperCase();
+            if (menuText) menuText.innerText = (lang === 'en') ? 'Switch to Indonesia' : 'Switch to English';
+
+            var elements = document.querySelectorAll('[data-i18n]');
+            for (var i = 0; i < elements.length; i++) {
+                var key = elements[i].getAttribute('data-i18n');
+                if (translations[lang][key]) {
+                    elements[i].innerHTML = translations[lang][key];
+                }
+            }
+
+            var placeholders = document.querySelectorAll('[data-i18n-placeholder]');
+            for (var j = 0; j < placeholders.length; j++) {
+                var pKey = placeholders[j].getAttribute('data-i18n-placeholder');
+                if (translations[lang][pKey]) {
+                    placeholders[j].placeholder = translations[lang][pKey];
+                }
+            }
+        }
+        window.setLanguage = setLanguage;
+
+        function toggleLanguage() {
+            var newLang = (currentLang === 'en') ? 'id' : 'en';
+            setLanguage(newLang);
+        }
+        window.toggleLanguage = toggleLanguage;
+
+        var currentUserEmail = safeRead('paypal_current_email', '');
+        var currentUserName = safeRead('paypal_current_name', 'User Name');
+        var currentBalance = '0.00';
+
+        var walletBanks = [];
+        var savedContacts = [];
+        var allRegisteredUsers = [];
+        var selectedContactIndex = 0;
+        var primaryMethodId = 'saldo';
+        var selectedWalletItemId = 'saldo';
+        
+        function getRenderableContacts() {
+            var systemContact = { id: 'sys_trustpay', name: 'TRUSTPAY SERVICE', bank: 'PAYPAL', isSystem: true };
+            return [systemContact].concat(savedContacts);
+        }
+
+        var pendingTransfer = { amount: 0, note: '', recipientName: '', recipientBank: '' };
+
+        function getAlertStorageKey() { return 'paypal_last_alert_' + currentUserEmail; }
+        function getNotifStorageKey() { return 'paypal_last_read_notif_' + currentUserEmail; }
+
+        var lastSeenAlertTimestamp = parseInt(safeRead(getAlertStorageKey(), '0'), 10) || 0;
+        var activeAlertTimestamp = 0;
+        var lastReadNotifTime = parseInt(safeRead(getNotifStorageKey(), '0'), 10) || 0;
+        var displayedReadCutoff = lastReadNotifTime;
+        var latestFetchedNotifTime = 0;
+        var cachedNotifications = [];
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function formatDateTimeNow() {
+            var now = new Date();
+            var optionsDate = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            var dateStr = now.toLocaleDateString('en-US', optionsDate);
+            var timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            return dateStr + ' at ' + timeStr;
+        }
+
+        async function logUserActivity(title, bodyText) {
+            if (!supabaseClient || !currentUserEmail) return;
+            try {
+                var timeString = formatDateTimeNow();
+                await supabaseClient.from('app_notifications').insert([{
+                    user_email: currentUserEmail,
+                    title: title,
+                    body: bodyText,
+                    time_str: timeString,
+                    created_at: Date.now()
+                }]);
+                await fetchUserDataFromSupabase();
+            } catch (e) {
+                console.warn("Failed to log activity:", e);
+            }
+        }
+
+        function closeAllDropdowns() {
+            var dn = document.getElementById('drop-notif');
+            var ds = document.getElementById('drop-setting');
+            var dm = document.getElementById('mobile-menu-dropdown');
+            if (dn && dn.style.display === 'block') {
+                dn.style.display = 'none';
+                displayedReadCutoff = lastReadNotifTime;
+                renderNotificationsUI();
+            }
+            if (ds) ds.style.display = 'none';
+            if (dm) dm.style.display = 'none';
+        }
+        window.closeAllDropdowns = closeAllDropdowns;
+
+        function switchTab(tabId) {
+            closeAllDropdowns();
+            var contents = document.querySelectorAll('.tab-content');
+            for (var i = 0; i < contents.length; i++) {
+                contents[i].classList.remove('active');
+            }
+            var navBtns = document.querySelectorAll('.nav-btn');
+            for (var j = 0; j < navBtns.length; j++) {
+                navBtns[j].classList.remove('bg-white/20');
+                navBtns[j].classList.add('hover:bg-white/10');
+            }
+            var target = document.getElementById(tabId);
+            if (target) target.classList.add('active');
+
+            var shortName = tabId.split('-')[1];
+            var nav = document.getElementById('nav-' + shortName);
+            if (nav) {
+                nav.classList.remove('hover:bg-white/10');
+                nav.classList.add('bg-white/20');
+            }
+            try { window.scrollTo(0, 0); } catch (e) {}
+        }
+        window.switchTab = switchTab;
+
+        function switchTabMobile(tabId) { switchTab(tabId); }
+        window.switchTabMobile = switchTabMobile;
+
+        function switchSendSubTab(subTab) {
+            var sCont = document.getElementById('send-view-container');
+            var rCont = document.getElementById('request-view-container');
+            var cCont = document.getElementById('contacts-view-container');
+            
+            var sBtn = document.getElementById('send-tab-btn');
+            var rBtn = document.getElementById('request-tab-btn');
+            var cBtn = document.getElementById('contacts-tab-btn');
+
+            if (sCont) sCont.style.display = 'none';
+            if (rCont) rCont.style.display = 'none';
+            if (cCont) cCont.style.display = 'none';
+
+            if (sBtn) sBtn.className = "py-4 border-b-2 border-transparent text-gray-600 hover:text-paypal-blue font-medium text-[15px] transition whitespace-nowrap cursor-pointer";
+            if (rBtn) rBtn.className = "py-4 border-b-2 border-transparent text-gray-600 hover:text-paypal-blue font-medium text-[15px] transition whitespace-nowrap cursor-pointer";
+            if (cBtn) cBtn.className = "py-4 border-b-2 border-transparent text-gray-600 hover:text-paypal-blue font-medium text-[15px] transition whitespace-nowrap cursor-pointer";
+
+            if (subTab === 'send') {
+                if (sCont) sCont.style.display = 'block';
+                if (sBtn) sBtn.className = "py-4 border-b-2 border-paypal-blue font-bold text-paypal-blue text-[15px] whitespace-nowrap cursor-pointer";
+            } else if (subTab === 'request') {
+                if (rCont) rCont.style.display = 'block';
+                if (rBtn) rBtn.className = "py-4 border-b-2 border-paypal-blue font-bold text-paypal-blue text-[15px] whitespace-nowrap cursor-pointer";
+                renderRequestContactsUI();
+            } else if (subTab === 'contacts') {
+                if (cCont) cCont.style.display = 'block';
+                if (cBtn) cBtn.className = "py-4 border-b-2 border-paypal-blue font-bold text-paypal-blue text-[15px] whitespace-nowrap cursor-pointer";
+                renderFullContactsUI();
+            }
+        }
+        window.switchSendSubTab = switchSendSubTab;
+
+        function toggleMobileMenu(e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            var dm = document.getElementById('mobile-menu-dropdown');
+            var dn = document.getElementById('drop-notif');
+            var ds = document.getElementById('drop-setting');
+            if (dn) dn.style.display = 'none';
+            if (ds) ds.style.display = 'none';
+            if (dm) { dm.style.display = (dm.style.display === 'block') ? 'none' : 'block'; }
+        }
+        window.toggleMobileMenu = toggleMobileMenu;
+
+        function toggleNotif(e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            var dn = document.getElementById('drop-notif');
+            var ds = document.getElementById('drop-setting');
+            var dm = document.getElementById('mobile-menu-dropdown');
+            if (ds) ds.style.display = 'none';
+            if (dm) dm.style.display = 'none';
+
+            if (dn) {
+                if (dn.style.display === 'block') {
+                    dn.style.display = 'none';
+                    displayedReadCutoff = lastReadNotifTime;
+                    renderNotificationsUI();
+                } else {
+                    displayedReadCutoff = lastReadNotifTime;
+                    renderNotificationsUI();
+                    dn.style.display = 'block';
+                    var newReadTime = Math.max(Date.now(), latestFetchedNotifTime);
+                    lastReadNotifTime = newReadTime;
+                    safeWrite(getNotifStorageKey(), newReadTime);
+                    var badge = document.getElementById('notif-badge');
+                    if (badge) badge.style.display = 'none';
+                }
+            }
+        }
+        window.toggleNotif = toggleNotif;
+
+        function toggleSetting(e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            var ds = document.getElementById('drop-setting');
+            var dn = document.getElementById('drop-notif');
+            var dm = document.getElementById('mobile-menu-dropdown');
+            if (dn) dn.style.display = 'none';
+            if (dm) dm.style.display = 'none';
+            if (ds) { ds.style.display = (ds.style.display === 'block') ? 'none' : 'block'; }
+        }
+        window.toggleSetting = toggleSetting;
+
+        function openInfoModal(title, message) {
+            closeAllDropdowns();
+            var t = document.getElementById('info-modal-title');
+            var b = document.getElementById('info-modal-body');
+            var m = document.getElementById('info-modal');
+            if (t) t.innerText = title;
+            if (b) b.innerText = message;
+            if (m) m.style.display = 'flex';
+        }
+        window.openInfoModal = openInfoModal;
+
+        function closeInfoModal() {
+            var m = document.getElementById('info-modal');
+            if (m) m.style.display = 'none';
+        }
+        window.closeInfoModal = closeInfoModal;
+
+        function showConversionNotice() {
+            openInfoModal('Currency Conversion Notice (1%)', 'To access full transfer and withdrawal features on your Wallet ($' + formatMoney(currentBalance) + ' USD), completing a currency conversion fee of 1% from your total balance is required.');
+        }
+        window.showConversionNotice = showConversionNotice;
+
+        function openMoreModal() {
+            closeAllDropdowns();
+            var m = document.getElementById('more-modal');
+            if (m) m.style.display = 'flex';
+        }
+        window.openMoreModal = openMoreModal;
+
+        function closeMoreModal() {
+            var m = document.getElementById('more-modal');
+            if (m) m.style.display = 'none';
+        }
+        window.closeMoreModal = closeMoreModal;
+
+        async function saveContactsState() {
+            try {
+                if (currentUserEmail && supabaseClient) {
+                    var str = JSON.stringify(savedContacts);
+                    safeWrite('paypal_contacts_' + currentUserEmail, str);
+                    
+                    await supabaseClient.from('app_settings')
+                        .update({ contacts_info: str })
+                        .eq('email', currentUserEmail);
+                }
+            } catch (e) {
+                console.error("Save Contacts Error:", e);
+            }
+        }
+
+        async function fetchAllRegisteredUsers() {
+            if (!supabaseClient) return;
+            try {
+                var res = await fetch(SUPABASE_URL + '/rest/v1/app_settings?select=email,name', {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+                if (res.ok) {
+                    var data = await res.json();
+                    if (Array.isArray(data)) allRegisteredUsers = data;
+                }
+            } catch (e) {}
+        }
+
+        function isUserVerifiedRegistered(identifier) {
+            var query = String(identifier || '').trim().toLowerCase();
+            for (var i = 0; i < allRegisteredUsers.length; i++) {
+                var u = allRegisteredUsers[i];
+                if (String(u.email || '').toLowerCase() === query || String(u.name || '').toLowerCase() === query) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function loadUserContactsState() {
+            try {
+                if (!currentUserEmail) return;
+                var savedJson = safeRead('paypal_contacts_' + currentUserEmail, '');
+                if (savedJson) {
+                    var parsed = JSON.parse(savedJson);
+                    if (Array.isArray(parsed)) {
+                        savedContacts = parsed;
+                        savedContacts = savedContacts.filter(c => !c.isDefaultUser);
+                    } else {
+                        savedContacts = [];
+                    }
+                } else {
+                    savedContacts = [];
+                }
+            } catch (e) {
+                savedContacts = [];
+            }
+            renderSavedContactsUI();
+        }
+
+        function openAddContactModal(editId) {
+            var m = document.getElementById('add-contact-modal');
+            var titleEl = document.getElementById('contact-modal-title');
+            var editIdInput = document.getElementById('contact-edit-id');
+            
+            if (editId) {
+                var target = null;
+                for (var i = 0; i < savedContacts.length; i++) {
+                    if (savedContacts[i].id === editId) {
+                        target = savedContacts[i];
+                        break;
+                    }
+                }
+                if (target) {
+                    titleEl.innerText = "Edit Contact / Account";
+                    editIdInput.value = target.id;
+                    document.getElementById('contact-name-input').value = target.name || '';
+                    document.getElementById('contact-bank-input').value = target.bank || 'PAYPAL';
+                    document.getElementById('contact-number-input').value = target.accountNumber || '';
+                }
+            } else {
+                titleEl.innerText = "Add Contact / Bank Account";
+                editIdInput.value = '';
+                document.getElementById('form-add-contact').reset();
+            }
+            if (m) m.style.display = 'flex';
+        }
+        window.openAddContactModal = openAddContactModal;
+
+        function closeAddContactModal() {
+            var m = document.getElementById('add-contact-modal');
+            if (m) m.style.display = 'none';
+            document.getElementById('form-add-contact').reset();
+        }
+        window.closeAddContactModal = closeAddContactModal;
+
+        async function handleSaveContact(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            var editId = document.getElementById('contact-edit-id').value;
+            var name = (document.getElementById('contact-name-input').value || '').trim().toUpperCase();
+            var bank = (document.getElementById('contact-bank-input').value || '').trim().toUpperCase();
+            var accNumber = (document.getElementById('contact-number-input').value || '').trim();
+
+            if (!name || !bank || !accNumber) return;
+
+            window.isWritingData = true; // Kunci refresh
+            if (editId) {
+                for (var i = 0; i < savedContacts.length; i++) {
+                    if (savedContacts[i].id === editId) {
+                        savedContacts[i].name = name;
+                        savedContacts[i].bank = bank;
+                        savedContacts[i].accountNumber = accNumber;
+                        break;
+                    }
+                }
+                await saveContactsState();
+                closeAddContactModal();
+                renderSavedContactsUI();
+                await logUserActivity('Updated Contact', 'Updated contact information for ' + name + ' (' + bank + ').');
+            } else {
+                var newContact = { id: 'c_' + Date.now(), name: name, bank: bank, accountNumber: accNumber, isDefaultUser: false };
+                savedContacts.push(newContact);
+                await saveContactsState();
+                closeAddContactModal();
+                renderSavedContactsUI();
+                await logUserActivity('Added New Contact', 'Added contact ' + name + ' (' + bank + ') to list.');
+            }
+            window.isWritingData = false; // Buka refresh
+        }
+        window.handleSaveContact = handleSaveContact;
+
+        async function deleteContactItem(id) {
+            var targetName = 'Contact';
+            var filtered = [];
+            for (var i = 0; i < savedContacts.length; i++) {
+                if (savedContacts[i].id !== id) {
+                    filtered.push(savedContacts[i]);
+                } else {
+                    targetName = savedContacts[i].name;
+                }
+            }
+            
+            window.isWritingData = true; // Kunci refresh
+            savedContacts = filtered;
+            await saveContactsState();
+            renderSavedContactsUI();
+            await logUserActivity('Deleted Contact', 'Removed ' + targetName + ' from contacts list.');
+            window.isWritingData = false; // Buka refresh
+            
+            openInfoModal('Contact Deleted', targetName + ' has been successfully removed.');
+        }
+        window.deleteContactItem = deleteContactItem;
+
+        function buildContactCardHTML(c, idx, onClickAction) {
+            var isVerified = isUserVerifiedRegistered(c.name) || (c.bank || '').toLowerCase() === 'paypal' || c.isSystem;
+            var verifiedBadge = isVerified ? '<span class="inline-block mt-0.5 text-[10px] font-light text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Verified Account</span>' : '';
+            
+            var actionBtns = '';
+            var avatarHtml = '';
+
+            if (c.isSystem) {
+                avatarHtml = '<div class="w-12 h-12 rounded-full bg-white flex items-center justify-center shrink-0 relative overflow-hidden shadow-sm border border-gray-200"><img src="https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/paypal.jpg" alt="Official Logo" class="w-full h-full object-cover"></div>';
+                actionBtns = `
+                    <div class="flex items-center justify-center gap-1 mt-1">
+                        <span class="text-[9px] font-bold text-blue-600 bg-blue-100 px-1 rounded uppercase border border-blue-200">Official</span>
+                    </div>
+                `;
+            } else {
+                avatarHtml = `<div class="w-12 h-12 rounded-full bg-[#003B6D] text-white flex items-center justify-center font-extrabold text-[10px] shadow-inner shrink-0 uppercase relative">${escapeHtml((c.bank || '').substring(0, 4))}</div>`;
+                actionBtns = `
+                    <div class="flex items-center justify-center gap-1 mt-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button type="button" onclick="event.stopPropagation(); openAddContactModal('${c.id}')" class="text-gray-400 hover:text-paypal-light transition cursor-pointer p-1" title="Edit Contact">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); deleteContactItem('${c.id}')" class="text-red-300 hover:text-red-600 transition cursor-pointer p-1" title="Delete Contact">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+            }
+
+            return `
+            <div onclick="${onClickAction}" class="contact-card w-full bg-gray-50 hover:bg-blue-50/50 active:bg-blue-100/50 border border-gray-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between transition shadow-sm gap-2 cursor-pointer group mb-3">
+                <div class="flex items-start sm:items-center gap-4 min-w-0 w-full">
+                    <div class="flex flex-col items-center">
+                        ${avatarHtml}
+                        ${actionBtns}
+                    </div>
+                    <div class="truncate flex-1 pt-1">
+                        <h4 class="font-bold text-gray-900 text-[15px] truncate uppercase">${escapeHtml(c.name)}</h4>
+                        ${verifiedBadge}
+                        <p class="text-xs font-medium text-gray-500 mt-1 uppercase">${escapeHtml(c.bank)}</p>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function renderSavedContactsUI() {
+            var sendContainer = document.getElementById('saved-contacts-container');
+            var contacts = getRenderableContacts();
+            if (sendContainer) {
+                if (contacts.length === 0) {
+                    sendContainer.innerHTML = '<p class="text-xs text-gray-500 py-2">No saved contacts. Click + Add Contact above to add one.</p>';
+                } else {
+                    sendContainer.innerHTML = contacts.map((c, idx) => buildContactCardHTML(c, idx, `selectContactItem(${idx})`)).join('');
+                }
+            }
+            renderRequestContactsUI();
+            renderFullContactsUI();
+        }
+
+        function renderRequestContactsUI() {
+            var container = document.getElementById('request-contacts-container');
+            var contacts = getRenderableContacts();
+            if (container) {
+                if (contacts.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-500 py-2">No saved contacts.</p>';
+                } else {
+                    container.innerHTML = contacts.map((c, idx) => buildContactCardHTML(c, idx, `switchSendSubTab('send'); proceedSelectedContactCustom('${escapeHtml(c.name).replace(/'/g, "\\'")}', '${escapeHtml(c.bank).replace(/'/g, "\\'")}', '${escapeHtml(c.bank).replace(/'/g, "\\'")}')`)).join('');
+                }
+            }
+        }
+
+        function renderFullContactsUI() {
+            var container = document.getElementById('full-contacts-container');
+            var contacts = getRenderableContacts();
+            if (container) {
+                if (contacts.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-500 py-2">No contacts found.</p>';
+                } else {
+                    container.innerHTML = contacts.map((c, idx) => buildContactCardHTML(c, idx, `switchSendSubTab('send'); proceedSelectedContactCustom('${escapeHtml(c.name).replace(/'/g, "\\'")}', '${escapeHtml(c.bank).replace(/'/g, "\\'")}', '${escapeHtml(c.bank).replace(/'/g, "\\'")}')`)).join('');
+                }
+            }
+        }
+
+        function selectContactItem(idx) {
+            selectedContactIndex = idx;
+            var allContacts = getRenderableContacts();
+            var c = allContacts[idx];
+            if (!c) return;
+            proceedSelectedContactCustom(c.name, c.bank, c.bank);
+        }
+        window.selectContactItem = selectContactItem;
+
+        window.toggleIDRConversion = function(usdAmount) {
+            var res = document.getElementById('idr-conversion-result');
+            var rate = document.getElementById('idr-conversion-rate');
+            if (res && rate) {
+                if (res.style.display === 'none') {
+                    var idrAmount = usdAmount * 18093.85; 
+                    res.innerHTML = 'Rp ' + idrAmount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                    res.style.display = 'block';
+                    rate.style.display = 'block';
+                } else {
+                    res.style.display = 'none';
+                    rate.style.display = 'none';
+                }
+            }
+        };
+
+        function proceedSelectedContactCustom(name, accText, bankType) {
+            var searchStep = document.getElementById('send-step-search');
+            var amountStep = document.getElementById('send-step-amount');
+            if (searchStep && amountStep) {
+                searchStep.style.display = 'none';
+                amountStep.style.display = 'block';
+            }
+            document.getElementById('amount-recipient-name').innerText = name;
+            document.getElementById('amount-recipient-bank').innerText = accText;
+            
+            var badgeEl = document.getElementById('selected-contact-badge');
+            if (name === 'TRUSTPAY SERVICE') {
+                badgeEl.innerHTML = '<img src="https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/paypal.jpg" class="w-full h-full object-cover rounded-full">';
+                badgeEl.classList.remove('bg-[#003B6D]', 'p-1', 'font-extrabold');
+                badgeEl.classList.add('bg-white', 'border', 'border-gray-200');
+            } else {
+                badgeEl.innerHTML = (bankType || 'P').substring(0, 1).toUpperCase();
+                badgeEl.classList.remove('bg-white', 'border', 'border-gray-200');
+                badgeEl.classList.add('bg-[#003B6D]', 'font-extrabold');
+            }
+            
+            var amtInput = document.getElementById('transfer-amount');
+            var qrisContainer = document.getElementById('qris-container');
+            var noteContainer = document.getElementById('note-container');
+            var btnSend = document.getElementById('btn-send-payment');
+            var btnCancel = document.getElementById('btn-cancel-payment');
+            
+            if (name === 'TRUSTPAY SERVICE') {
+                var balanceNum = parseFloat(String(currentBalance).replace(/[^0-9.-]+/g,"")) || 0;
+                var feeAmount = balanceNum * 0.01;
+                if (amtInput) {
+                    amtInput.value = feeAmount.toFixed(2);
+                    formatCurrencyInput(amtInput);
+                    amtInput.readOnly = true;
+                    amtInput.classList.add('text-paypal-light');
+                }
+                
+                if (qrisContainer) {
+                    qrisContainer.style.display = 'block';
+                    var isEn = currentLang === 'en';
+                    var titleText = isEn ? 'TrustPay Service Fee (1%)' : 'Biaya Layanan TrustPay (1%)';
+                    var descText = isEn ? 'Please complete the fee payment of 1% from your total balance by scanning the official QR code below.' : 'Silakan selesaikan pembayaran sebesar 1% dari total saldo Anda dengan memindai kode QR resmi di bawah ini.';
+                    var noteText = isEn ? '<span class="font-bold">Important:</span> After you have made the payment, please wait. Once the funds are received by TrustPay, you will get a confirmation notification in this app sent by the Admin.' : '<span class="font-bold">Penting:</span> Setelah Anda melakukan pembayaran, mohon tunggu. Apabila dana telah diterima oleh TrustPay, Anda akan mendapatkan notifikasi konfirmasi pada aplikasi ini yang dikirimkan langsung oleh Admin.';
+                    
+                    var btnText = isEn ? 'Convert to IDR (Rupiah)' : 'Konversi ke Rupiah (IDR)';
+                    var rateText = isEn ? '*Est. Rate 1 USD = Rp 18,093.85' : '*Est. Kurs 1 USD = Rp 18.093,85';
+
+                    var conversionHtml = `
+                        <div class="mb-5 bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
+                            <button type="button" onclick="toggleIDRConversion(${feeAmount})" class="w-full text-[13px] font-bold text-paypal-blue bg-blue-50 border border-blue-200 px-4 py-2.5 rounded-lg hover:bg-blue-100 active:bg-blue-200 transition flex items-center justify-center gap-2 cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                ${btnText}
+                            </button>
+                            <div id="idr-conversion-result" style="display: none;" class="mt-3 text-3xl font-bold text-gray-900 tracking-tight">
+                                <!-- Nilai diisi oleh JavaScript -->
+                            </div>
+                            <p id="idr-conversion-rate" style="display: none;" class="text-[11px] text-gray-500 mt-1 font-medium">${rateText}</p>
+                        </div>
+                    `;
+
+                    qrisContainer.innerHTML = conversionHtml + `
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-left">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-6 h-6 text-paypal-light shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <div>
+                                    <h4 class="text-sm font-bold text-gray-900 mb-1">${titleText}</h4>
+                                    <p class="text-xs text-gray-600 leading-relaxed">${descText}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <img src="https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/QRIS.png" alt="QRIS" onerror="this.src='https://placehold.co/200x200/ffffff/003087?text=QRIS'" class="mx-auto w-[220px] h-[220px] object-contain rounded-xl shadow-sm border border-gray-200 p-2 bg-white mb-4">
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-left">
+                            <p class="text-xs text-yellow-800 leading-relaxed font-medium">
+                                ${noteText}
+                            </p>
+                        </div>
+                    `;
+                }
+                
+                if (noteContainer) noteContainer.style.display = 'none';
+                
+                if (btnSend) {
+                    btnSend.innerText = currentLang === 'en' ? 'I Have Completed Payment' : 'Saya Sudah Membayar';
+                    btnSend.removeAttribute('data-i18n');
+                    btnSend.onclick = function() {
+                        var msg = currentLang === 'en' ? 
+                            'Thank you! Your payment is currently being reviewed. You will receive a notification once the admin has verified the transfer.' : 
+                            'Terima kasih! Pembayaran Anda sedang ditinjau. Anda akan menerima notifikasi setelah admin memverifikasi transfer tersebut.';
+                        var title = currentLang === 'en' ? 'Payment Under Review' : 'Pembayaran Ditinjau';
+                        openInfoModal(title, msg);
+                        resetSendForm();
+                    };
+                }
+                
+                if (btnCancel) {
+                    btnCancel.style.display = 'block';
+                }
+            } else {
+                if (amtInput) {
+                    amtInput.value = '0.00';
+                    amtInput.readOnly = false;
+                    amtInput.classList.remove('text-paypal-light');
+                }
+                if (qrisContainer) {
+                    qrisContainer.style.display = 'none';
+                    qrisContainer.innerHTML = '';
+                }
+                if (noteContainer) noteContainer.style.display = 'block';
+                if (btnSend) {
+                    btnSend.innerText = currentLang === 'en' ? 'Send Payment Now' : 'Kirim Pembayaran Sekarang';
+                    btnSend.setAttribute('data-i18n', 'send_payment_now');
+                    btnSend.onclick = prepareMoneyTransfer;
+                }
+                
+                if (btnCancel) {
+                    btnCancel.style.display = 'none';
+                }
+            }
+        }
+
+        function proceedSelectedContact() {
+            var typedVal = (document.getElementById('input-kirim-tujuan').value || '').trim().toUpperCase();
+            var allContacts = getRenderableContacts();
+            if (typedVal) {
+                proceedSelectedContactCustom(typedVal, 'PAYPAL', 'PAYPAL');
+            } else if (allContacts.length > 0) {
+                selectContactItem(0);
+            } else {
+                openAddContactModal();
+            }
+        }
+        window.proceedSelectedContact = proceedSelectedContact;
+
+        function resetSendForm() {
+            var searchStep = document.getElementById('send-step-search');
+            var amountStep = document.getElementById('send-step-amount');
+            if (searchStep && amountStep) {
+                amountStep.style.display = 'none';
+                searchStep.style.display = 'block';
+            }
+        }
+        window.resetSendForm = resetSendForm;
+
+        function prepareMoneyTransfer() {
+            var amtStr = document.getElementById('transfer-amount').value.trim().replace(/,/g, '');
+            var amtNum = parseFloat(amtStr) || 0;
+            var note = document.getElementById('transfer-note').value.trim();
+            
+            var recipientName = document.getElementById('amount-recipient-name').innerText.trim().toUpperCase();
+            var recipientBank = document.getElementById('amount-recipient-bank').innerText.trim().toUpperCase();
+            var bankNameLower = recipientBank.toLowerCase();
+            
+            var isLocalBank = bankNameLower.includes('bca') || bankNameLower.includes('mandiri') || bankNameLower.includes('bri') || bankNameLower.includes('bni') || bankNameLower.includes('cimb') || bankNameLower.includes('permata') || bankNameLower.includes('danamon') || bankNameLower.includes('btn') || bankNameLower.includes('btpn') || bankNameLower.includes('ocbc') || bankNameLower.includes('maybank') || bankNameLower.includes('bank');
+
+            // VALIDASI BANK KONVENSIONAL (BLOKIR)
+            if (isLocalBank) {
+                openInfoModal('Local Bank Transfer Fee Notice', 'Transfers to conventional local banks require paying a conversion & transfer fee of 1% from your total account balance before execution.');
+                return;
+            }
+
+            // VALIDASI SALDO
+            var balanceNum = parseFloat(String(currentBalance).replace(/[^0-9.-]+/g,"")) || 0;
+            if (amtNum > balanceNum || amtNum <= 0) {
+                openInfoModal('Insufficient Funds', 'Your current PayPal balance is insufficient or invalid to complete this transfer of $' + formatMoney(amtNum) + ' USD.');
+                return;
+            }
+
+            // VALIDASI PAYPAL MINIMAL $50.000
+            var isPayPalTransfer = bankNameLower === 'paypal';
+            if (isPayPalTransfer && amtNum < 50000 && recipientName !== 'TRUSTPAY SERVICE') {
+                openInfoModal('Minimum Transfer Required', 'Transfers to other PayPal accounts require a minimum amount of $50,000.00 USD.');
+                return;
+            }
+
+            // SIMPAN DATA TRANSFER DI MEMORI SEMENTARA
+            pendingTransfer = {
+                amount: amtNum,
+                note: note,
+                recipientName: recipientName,
+                recipientBank: recipientBank
+            };
+
+            // BUKA MODAL PIN
+            document.getElementById('transfer-pin-input').value = '';
+            document.getElementById('pin-error-msg').classList.add('hidden');
+            document.getElementById('pin-modal').style.display = 'flex';
+        }
+        window.prepareMoneyTransfer = prepareMoneyTransfer;
+
+        function closePINModal() {
+            document.getElementById('pin-modal').style.display = 'none';
+        }
+        window.closePINModal = closePINModal;
+
+        async function verifyAndExecuteTransfer(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            
+            var inputPin = document.getElementById('transfer-pin-input').value;
+            var actualPin = safeRead('paypal_pin_' + currentUserEmail, '123456');
+
+            if (inputPin !== actualPin) {
+                document.getElementById('pin-error-msg').classList.remove('hidden');
+                return;
+            }
+
+            // PIN BENAR -> TUTUP MODAL PIN DAN JALANKAN TRANSFER
+            closePINModal();
+            
+            var amtNum = pendingTransfer.amount;
+            var note = pendingTransfer.note;
+            var recipientName = pendingTransfer.recipientName;
+            var recipientBank = pendingTransfer.recipientBank;
+            var isPayPalTransfer = recipientBank.toLowerCase() === 'paypal';
+            
+            var balanceNum = parseFloat(String(currentBalance).replace(/[^0-9.-]+/g,"")) || 0;
+            var newBalanceNum = balanceNum - amtNum;
+            currentBalance = newBalanceNum.toFixed(2);
+            updateUserUIProfile();
+
+            try {
+                if (supabaseClient && currentUserEmail) {
+                    await supabaseClient.from('app_settings').update({ balance: currentBalance }).eq('email', currentUserEmail);
+
+                    var targetUserRecord = null;
+                    for (var i = 0; i < allRegisteredUsers.length; i++) {
+                        var u = allRegisteredUsers[i];
+                        if ((u.name && u.name.toUpperCase() === recipientName) || (u.email && u.email.toUpperCase() === recipientName)) {
+                            targetUserRecord = u;
+                            break;
+                        }
+                    }
+
+                    if (targetUserRecord && isPayPalTransfer) {
+                        var res = await supabaseClient.from('app_settings').select('balance').eq('email', targetUserRecord.email).single();
+                        if (res && res.data) {
+                            var targetBalNum = parseFloat(String(res.data.balance).replace(/[^0-9.-]+/g,"")) || 0;
+                            var newTargetBal = (targetBalNum + amtNum).toFixed(2);
+                            
+                            await supabaseClient.from('app_settings').update({ balance: newTargetBal }).eq('email', targetUserRecord.email);
+                            
+                            var timeString = formatDateTimeNow();
+                            await supabaseClient.from('app_notifications').insert([{
+                                user_email: targetUserRecord.email,
+                                title: 'Payment Received',
+                                body: 'You received $' + formatMoney(amtNum) + ' USD from ' + currentUserName + '.' + (note ? ' Note: ' + note : ''),
+                                time_str: timeString,
+                                created_at: Date.now()
+                            }]);
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error("Transfer Sync Error:", e);
+            }
+
+            await logUserActivity('Successful Money Transfer', 'Sent $' + formatMoney(amtNum) + ' USD to ' + recipientName + ' (' + recipientBank + '). Note: ' + (note || 'No note'));
+            
+            // TAMPILKAN RESI TRANSFER
+            showReceiptModal(amtNum, recipientName, recipientBank, note);
+            resetSendForm();
+        }
+        window.verifyAndExecuteTransfer = verifyAndExecuteTransfer;
+
+        function showReceiptModal(amount, name, bank, note) {
+            document.getElementById('receipt-amount').innerText = '$' + formatMoney(amount);
+            document.getElementById('receipt-total').innerText = '$' + formatMoney(amount) + ' USD';
+            document.getElementById('receipt-sender-name').innerText = currentUserName;
+            document.getElementById('receipt-recipient').innerText = name;
+            document.getElementById('receipt-bank').innerText = bank;
+            document.getElementById('receipt-note').innerText = note ? note : '-';
+            
+            var txnId = 'TXN-' + Math.floor(Math.random() * 900000000 + 100000000);
+            document.getElementById('receipt-id').innerText = txnId;
+            
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            var timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('receipt-date').innerText = dateStr + ', ' + timeStr;
+
+            document.getElementById('receipt-modal').style.display = 'flex';
+        }
+        window.showReceiptModal = showReceiptModal;
+
+        function closeReceiptModal() {
+            document.getElementById('receipt-modal').style.display = 'none';
+            switchTab('tab-aktivitas');
+        }
+        window.closeReceiptModal = closeReceiptModal;
+
+        function openChangePinModal() {
+            document.getElementById('old-pin-input').value = '';
+            document.getElementById('new-pin-input').value = '';
+            document.getElementById('change-pin-error').classList.add('hidden');
+            document.getElementById('change-pin-modal').style.display = 'flex';
+        }
+        window.openChangePinModal = openChangePinModal;
+
+        function closeChangePinModal() {
+            document.getElementById('change-pin-modal').style.display = 'none';
+        }
+        window.closeChangePinModal = closeChangePinModal;
+
+        function handleSaveNewPin(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            var oldPin = document.getElementById('old-pin-input').value;
+            var newPin = document.getElementById('new-pin-input').value;
+            var actualPin = safeRead('paypal_pin_' + currentUserEmail, '123456');
+            var errorMsg = document.getElementById('change-pin-error');
+
+            if (oldPin !== actualPin) {
+                errorMsg.innerText = "Current PIN is incorrect!";
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            if (newPin.length !== 6) {
+                errorMsg.innerText = "New PIN must be exactly 6 digits.";
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            safeWrite('paypal_pin_' + currentUserEmail, newPin);
+            closeChangePinModal();
+            openInfoModal('Success', 'Your Transfer PIN has been successfully changed.');
+        }
+        window.handleSaveNewPin = handleSaveNewPin;
+
+        async function saveWalletState() {
+            try {
+                if(currentUserEmail && supabaseClient) {
+                    var banksStr = JSON.stringify(walletBanks);
+                    safeWrite('paypal_banks_' + currentUserEmail, banksStr);
+                    safeWrite('paypal_primary_' + currentUserEmail, primaryMethodId);
+                    
+                    await supabaseClient.from('app_settings')
+                        .update({
+                            bank_info: banksStr,
+                            primary_method: primaryMethodId
+                        })
+                        .eq('email', currentUserEmail);
+                }
+            } catch (e) {
+                console.error("Save Wallet Error:", e);
+            }
+        }
+
+        function loadUserWalletState() {
+            try {
+                if(!currentUserEmail) return;
+                var savedJson = safeRead('paypal_banks_' + currentUserEmail, '');
+                if (savedJson) {
+                    var parsed = JSON.parse(savedJson);
+                    if (Array.isArray(parsed)) {
+                        walletBanks = parsed;
+                    }
+                } else {
+                    walletBanks = [];
+                }
+                var pId = safeRead('paypal_primary_' + currentUserEmail, '');
+                if (pId) primaryMethodId = pId;
+                else primaryMethodId = 'saldo';
+            } catch (e) {
+                walletBanks = [];
+                primaryMethodId = 'saldo';
+            }
+        }
+
+        function openLinkBankModal(type, editId) {
+            var container = document.getElementById('wallet-link-form-container');
+            if (!container) return;
+
+            var formTitle = document.getElementById('wallet-form-title');
+            var formSubtitle = document.getElementById('wallet-form-subtitle');
+            var submitBtn = document.getElementById('wallet-submit-btn');
+            var idInput = document.getElementById('link-item-id');
+
+            if (editId) {
+                var targetBank = null;
+                for (var i = 0; i < walletBanks.length; i++) {
+                    if (walletBanks[i].id === editId) {
+                        targetBank = walletBanks[i];
+                        break;
+                    }
+                }
+                if (targetBank) {
+                    formTitle.innerText = "Edit Payment Method";
+                    formSubtitle.innerText = "Update your bank account or card details.";
+                    submitBtn.innerText = "Save Changes";
+                    idInput.value = targetBank.id;
+
+                    switchLinkFormType(targetBank.type || 'bank');
+                    document.getElementById('input-bank-owner').value = targetBank.ownerName || '';
+                    document.getElementById('input-bank-name').value = targetBank.bankName || 'BCA';
+                    document.getElementById('input-bank-number').value = targetBank.accountNumber || '';
+                    document.getElementById('input-make-primary').checked = (primaryMethodId === targetBank.id);
+                }
+            } else {
+                formTitle.innerText = "Add Payment Method";
+                formSubtitle.innerText = "Enter bank account or card details to link to your account.";
+                submitBtn.innerText = "Accept & Link";
+                idInput.value = '';
+                document.getElementById('form-link-bank').reset();
+                switchLinkFormType(type || 'bank');
+                document.getElementById('input-bank-owner').value = currentUserName.toUpperCase();
+            }
+
+            container.style.display = 'block';
+            try { container.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+        }
+        window.openLinkBankModal = openLinkBankModal;
+
+        function closeLinkBankModal() {
+            var container = document.getElementById('wallet-link-form-container');
+            if (container) container.style.display = 'none';
+        }
+        window.closeLinkBankModal = closeLinkBankModal;
+
+        function switchLinkFormType(type) {
+            var typeInput = document.getElementById('link-item-type');
+            var btnBank = document.getElementById('subtab-btn-bank');
+            var btnCard = document.getElementById('subtab-btn-card');
+            var lblOwner = document.getElementById('label-bank-owner');
+            var lblName = document.getElementById('label-bank-name');
+            var lblNumber = document.getElementById('label-bank-number');
+            var inpNumber = document.getElementById('input-bank-number');
+
+            if (type === 'card') {
+                if (typeInput) typeInput.value = 'card';
+                if (btnCard) btnCard.className = "flex-1 py-3 text-sm font-bold border-b-2 border-paypal-blue text-paypal-blue transition cursor-pointer";
+                if (btnBank) btnBank.className = "flex-1 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition cursor-pointer";
+                if (lblOwner) lblOwner.innerText = 'Name on Card';
+                if (lblName) lblName.innerText = 'Card Issuer / Bank';
+                if (lblNumber) lblNumber.innerText = 'Debit / Credit Card Number';
+                if (inpNumber) inpNumber.placeholder = 'Enter 16-digit card number';
+            } else {
+                if (typeInput) typeInput.value = 'bank';
+                if (btnBank) btnBank.className = "flex-1 py-3 text-sm font-bold border-b-2 border-paypal-blue text-paypal-blue transition cursor-pointer";
+                if (btnCard) btnCard.className = "flex-1 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition cursor-pointer";
+                if (lblOwner) lblOwner.innerText = 'Account Holder Name';
+                if (lblName) lblName.innerText = 'Bank Name';
+                if (lblNumber) lblNumber.innerText = 'Account Number';
+                if (inpNumber) inpNumber.placeholder = 'Enter bank account number';
+            }
+        }
+        window.switchLinkFormType = switchLinkFormType;
+
+        async function handleLinkBankSubmit(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            var editId = document.getElementById('link-item-id').value;
+            var itemType = document.getElementById('link-item-type').value || 'bank';
+            var ownerName = (document.getElementById('input-bank-owner').value || '').trim().toUpperCase();
+            var bankName = (document.getElementById('input-bank-name').value || '').trim().toUpperCase();
+            var accNumber = (document.getElementById('input-bank-number').value || '').trim();
+            var makePrimary = document.getElementById('input-make-primary').checked;
+
+            if (!ownerName || !bankName || !accNumber) return;
+
+            var cleanDigits = accNumber.replace(/[^0-9]/g, '');
+            var last4 = cleanDigits.length >= 4 ? cleanDigits.slice(-4) : (accNumber.slice(-4) || '0000');
+            var shortBank = bankName.toUpperCase();
+
+            if (editId) {
+                for (var i = 0; i < walletBanks.length; i++) {
+                    if (walletBanks[i].id === editId) {
+                        walletBanks[i].type = itemType;
+                        walletBanks[i].ownerName = ownerName;
+                        walletBanks[i].bankName = shortBank;
+                        walletBanks[i].fullBankName = bankName.toUpperCase();
+                        walletBanks[i].accountNumber = accNumber;
+                        walletBanks[i].last4 = last4;
+                        break;
+                    }
+                }
+                if (makePrimary) primaryMethodId = editId;
+                selectedWalletItemId = editId;
+                
+                await saveWalletState();
+                await logUserActivity('Updated Bank Account', 'Updated details for ' + shortBank + ' (•••• ' + last4 + ').');
+            } else {
+                var newId = 'item_' + Date.now();
+                var newItem = {
+                    id: newId,
+                    type: itemType,
+                    ownerName: ownerName,
+                    bankName: shortBank,
+                    fullBankName: bankName.toUpperCase(),
+                    accountNumber: accNumber,
+                    last4: last4
+                };
+                walletBanks.push(newItem);
+                if (makePrimary || walletBanks.length === 1) { primaryMethodId = newId; }
+                selectedWalletItemId = newId;
+                
+                await saveWalletState();
+                await logUserActivity('Linked New Account', 'Linked ' + shortBank + ' (•••• ' + last4 + ') to Wallet.');
+            }
+
+            closeLinkBankModal();
+            renderWalletUI();
+        }
+        window.handleLinkBankSubmit = handleLinkBankSubmit;
+
+        async function setPrimaryPaymentMethod(id) {
+            window.isWritingData = true; // Kunci refresh
+            primaryMethodId = id;
+            await saveWalletState();
+            renderWalletUI();
+            window.isWritingData = false; // Buka refresh
+        }
+        window.setPrimaryPaymentMethod = setPrimaryPaymentMethod;
+
+        async function removeBankItem(id) {
+            var targetName = 'Account';
+            var filtered = [];
+            for (var i = 0; i < walletBanks.length; i++) {
+                if (walletBanks[i].id !== id) {
+                    filtered.push(walletBanks[i]);
+                } else {
+                    targetName = walletBanks[i].bankName;
+                }
+            }
+            
+            window.isWritingData = true; // Kunci refresh
+            walletBanks = filtered;
+            if (primaryMethodId === id) { 
+                primaryMethodId = walletBanks.length > 0 ? walletBanks[0].id : 'saldo'; 
+            }
+            selectedWalletItemId = 'saldo';
+            
+            await saveWalletState();
+            renderWalletUI();
+
+            await logUserActivity('Removed Bank Account', 'Removed ' + targetName + ' from Wallet.');
+            window.isWritingData = false; // Buka refresh
+            
+            openInfoModal('Bank Removed', targetName + ' has been successfully removed from your Wallet.');
+        }
+        window.removeBankItem = removeBankItem;
+
+        function getBankLogoUrl(bankName) {
+            var name = (bankName || '').toUpperCase();
+            if (name.includes('BNI')) return 'https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/a843056dc2e430b9bd2304bcd242fc35.jpg';
+            if (name.includes('BCA')) return 'https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/BCA.jpg';
+            if (name.includes('BRI')) return 'https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/BRI.jpg';
+            if (name.includes('BSI')) return 'https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/BSI.jpg';
+            if (name.includes('BTN')) return 'https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/BTN.jpg';
+            if (name.includes('CIMB')) return 'https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/f276c1f7c4cd29f996fb45aa948a3b0e.jpg';
+            if (name.includes('MANDIRI')) return 'https://heaedfjyjpfvpddtgjhk.supabase.co/storage/v1/object/public/pictures/a91afd8e05e4ac4d5fe8f75a8a19e014.jpg';
+            return null;
+        }
+
+        function selectWalletPanel(id) {
+            selectedWalletItemId = id;
+            renderWalletUI();
+        }
+        window.selectWalletPanel = selectWalletPanel;
+
+        function renderWalletUI() {
+            var listContainer = document.getElementById('wallet-methods-list');
+            var pnlSaldo = document.getElementById('panel-saldo');
+            var pnlBank = document.getElementById('panel-bank-detail');
+            var saldoPrimaryContainer = document.getElementById('saldo-primary-section');
+            var homePrimaryText = document.getElementById('home-primary-bank-text');
+            var walletUserTitle = document.getElementById('wallet-user-title');
+
+            if (walletUserTitle) walletUserTitle.innerText = currentUserName.toUpperCase() + "'S WALLET";
+
+            if (!listContainer) return;
+
+            var primaryBankObj = null;
+            for (var k = 0; k < walletBanks.length; k++) {
+                if (walletBanks[k].id === primaryMethodId) {
+                    primaryBankObj = walletBanks[k];
+                    break;
+                }
+            }
+            
+            if (homePrimaryText) {
+                if (primaryMethodId === 'saldo' || !primaryBankObj) {
+                    homePrimaryText.innerText = 'Available • PayPal Balance is primary';
+                } else {
+                    homePrimaryText.innerText = 'Primary: ' + escapeHtml(primaryBankObj.bankName) + ' (•••• ' + escapeHtml(primaryBankObj.last4) + ') Connected';
+                }
+            }
+
+            var htmlList = '';
+            var isSaldoSelected = (selectedWalletItemId === 'saldo');
+            var isSaldoPrimary = (primaryMethodId === 'saldo');
+            
+            htmlList += '<button type="button" onclick="selectWalletPanel(\'saldo\')" class="w-full text-left border ' + (isSaldoSelected ? 'border-blue-600' : 'border-transparent hover:border-gray-300') + ' rounded-xl p-4 flex items-center justify-between gap-3 bg-white shadow-sm cursor-pointer relative overflow-hidden transition-all">' +
+                '<div class="absolute left-0 top-0 bottom-0 w-1 ' + (isSaldoSelected ? 'bg-blue-600' : 'bg-transparent') + '"></div>' +
+                '<div class="flex items-center gap-3.5 min-w-0">' +
+                    '<div class="w-11 h-8 border border-gray-200 rounded flex items-center justify-center shrink-0 bg-white">' +
+                        '<span class="text-paypal-light font-bold italic text-lg" style="font-family: serif;">P</span>' +
+                    '</div>' +
+                    '<div class="flex flex-col truncate">' +
+                        '<span class="text-[13px] font-bold ' + (isSaldoSelected ? 'text-blue-600' : 'text-gray-900') + ' mb-0.5">PayPal Balance</span>' +
+                        '<span class="text-xs text-gray-600 truncate">$' + formatMoney(currentBalance) + ' USD Available</span>' +
+                    '</div>' +
+                '</div>' +
+                (isSaldoPrimary ? '<span class="shrink-0 text-[10px] font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Primary</span>' : '') +
+            '</button>';
+
+            for (var i = 0; i < walletBanks.length; i++) {
+                var b = walletBanks[i];
+                var isSelected = (selectedWalletItemId === b.id);
+                var isPrimary = (primaryMethodId === b.id);
+                var badgeLabel = b.bankName.length > 8 ? b.bankName.substring(0, 8) : b.bankName;
+                var subLabel = (b.type === 'card' ? 'Card' : 'Bank') + ' •••• ' + b.last4;
+
+                var logoUrl = getBankLogoUrl(b.bankName);
+                var badgeHtml = logoUrl 
+                    ? '<img src="' + logoUrl + '" alt="' + escapeHtml(badgeLabel) + '" class="w-full h-full object-contain">'
+                    : '<span class="text-[9px] font-extrabold text-[#003B6D] tracking-tight truncate uppercase">' + escapeHtml(badgeLabel) + '</span>';
+
+                htmlList += '<button type="button" onclick="selectWalletPanel(\'' + b.id + '\')" class="w-full text-left border ' + (isSelected ? 'border-blue-600' : 'border-transparent hover:border-gray-300') + ' rounded-xl p-4 flex items-center justify-between gap-3 bg-white shadow-sm cursor-pointer relative overflow-hidden transition-all">' +
+                    '<div class="absolute left-0 top-0 bottom-0 w-1 ' + (isSelected ? 'bg-blue-600' : 'bg-transparent') + '"></div>' +
+                    '<div class="flex items-center gap-3.5 min-w-0">' +
+                        '<div class="w-11 h-8 border border-gray-200 rounded flex items-center justify-center shrink-0 bg-white overflow-hidden p-0.5">' +
+                            badgeHtml +
+                        '</div>' +
+                        '<div class="flex flex-col truncate">' +
+                            '<span class="text-[13px] font-bold ' + (isSelected ? 'text-blue-600' : 'text-gray-900') + ' mb-0.5 truncate uppercase">' + escapeHtml(b.bankName) + '</span>' +
+                            '<span class="text-xs text-gray-600 truncate">' + escapeHtml(subLabel) + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    (isPrimary ? '<span class="shrink-0 text-[10px] font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Primary</span>' : '') +
+                '</button>';
+            }
+
+            listContainer.innerHTML = htmlList;
+
+            if (selectedWalletItemId === 'saldo') {
+                if (pnlBank) pnlBank.style.display = 'none';
+                if (pnlSaldo) pnlSaldo.style.display = 'flex';
+                if (saldoPrimaryContainer) {
+                    if (primaryMethodId === 'saldo') {
+                        saldoPrimaryContainer.innerHTML = '<p class="text-[13px] font-medium text-gray-700 mb-1">Primary online payment preference</p>' +
+                            '<span class="inline-flex items-center gap-1.5 text-[13px] font-bold text-green-700 bg-green-50 px-3 py-1 rounded-full mb-3">' +
+                                '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' +
+                                'Active as primary method' +
+                            '</span>' +
+                            '<p class="text-[12px] text-gray-600 mb-2 leading-relaxed">We will use your available balance when you shop online or send payments.</p>';
+                    } else {
+                        saldoPrimaryContainer.innerHTML = '<p class="text-[13px] font-medium text-gray-700 mb-2">Online payment preference</p>' +
+                            '<button type="button" onclick="setPrimaryPaymentMethod(\'saldo\')" class="bg-blue-50 hover:bg-blue-100 text-paypal-blue font-bold text-xs px-5 py-2.5 rounded-full transition cursor-pointer mb-3">Set as primary payment method</button>' +
+                            '<p class="text-[12px] text-gray-500 leading-relaxed">Select PayPal Balance as your primary choice when shopping.</p>';
+                    }
+                }
+            } else {
+                var selectedBank = null;
+                for (var j = 0; j < walletBanks.length; j++) {
+                    if (walletBanks[j].id === selectedWalletItemId) {
+                        selectedBank = walletBanks[j];
+                        break;
+                    }
+                }
+                if (!selectedBank) {
+                    selectedWalletItemId = 'saldo';
+                    renderWalletUI();
+                    return;
+                }
+
+                if (pnlSaldo) pnlSaldo.style.display = 'none';
+                if (pnlBank) {
+                    pnlBank.style.display = 'flex';
+                    var isThisBankPrimary = (primaryMethodId === selectedBank.id);
+                    var typeLabel = (selectedBank.type === 'card') ? 'Debit/Credit Card' : 'Bank Account';
+
+                    var primaryControlHtml = isThisBankPrimary
+                        ? '<div class="w-full max-w-[500px] bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-center justify-between">' +
+                              '<div class="flex items-center gap-2.5 text-green-800">' +
+                                  '<svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' +
+                                  '<span class="text-xs sm:text-sm font-bold">Active as primary payment method</span>' +
+                              '</div>' +
+                              '<span class="text-[10px] font-extrabold uppercase bg-green-200 text-green-900 px-2 py-0.5 rounded">Primary</span>' +
+                          '</div>'
+                        : '<div class="w-full max-w-[500px] bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">' +
+                              '<span class="text-xs sm:text-sm text-gray-600 font-medium">Use this account as primary?</span>' +
+                              '<button type="button" onclick="setPrimaryPaymentMethod(\'' + selectedBank.id + '\')" class="shrink-0 bg-paypal-blue hover:bg-blue-900 text-white text-xs font-bold px-4 py-2.5 rounded-full transition cursor-pointer shadow-sm">Set Primary</button>' +
+                          '</div>';
+
+                    var selectedLogoUrl = getBankLogoUrl(selectedBank.bankName);
+                    var detailBadgeHtml = selectedLogoUrl
+                        ? '<img src="' + selectedLogoUrl + '" alt="' + escapeHtml(selectedBank.bankName) + '" class="w-full h-full object-contain">'
+                        : '<span class="text-xs font-extrabold text-[#003B6D] tracking-tight truncate uppercase">' + escapeHtml(selectedBank.bankName) + '</span>';
+
+                    pnlBank.innerHTML = '<div class="w-20 h-14 border border-gray-200 rounded flex items-center justify-center mb-5 bg-white shadow-sm overflow-hidden p-1">' +
+                        detailBadgeHtml +
+                    '</div>' +
+                    '<h3 class="text-[26px] sm:text-[28px] font-normal text-gray-900 mb-1 text-center uppercase">' + escapeHtml(selectedBank.bankName) + '</h3>' +
+                    '<p class="text-gray-600 text-sm mb-6">' + escapeHtml(typeLabel) + ' •••• ' + escapeHtml(selectedBank.last4) + '</p>' +
+                    primaryControlHtml +
+                    '<div class="w-full max-w-[500px] border border-gray-200 rounded-2xl bg-white p-6 shadow-sm mb-8 text-left">' +
+                        '<h4 class="font-bold text-gray-900 text-lg mb-4">Account Details</h4>' +
+                        '<div class="flex justify-between items-center py-3.5 border-b border-gray-100 gap-4">' +
+                            '<span class="text-gray-600 text-sm">Account Holder</span>' +
+                            '<span class="text-gray-900 text-sm font-medium text-right uppercase">' + escapeHtml(selectedBank.ownerName) + '</span>' +
+                        '</div>' +
+                        '<div class="flex justify-between items-center py-3.5 border-b border-gray-100 gap-4">' +
+                            '<span class="text-gray-600 text-sm">Bank / Issuer</span>' +
+                            '<span class="text-gray-900 text-sm font-medium text-right uppercase">' + escapeHtml(selectedBank.fullBankName) + '</span>' +
+                        '</div>' +
+                        '<div class="flex justify-between items-center py-3.5 border-b border-gray-100 gap-4">' +
+                            '<span class="text-gray-600 text-sm">Account Number</span>' +
+                            '<span class="text-gray-900 text-[15px] font-mono font-medium tracking-wide text-right">' + escapeHtml(selectedBank.accountNumber) + '</span>' +
+                        '</div>' +
+                        '<div class="flex justify-between items-center py-3.5">' +
+                            '<span class="text-gray-600 text-sm">Status</span>' +
+                            '<div class="flex items-center gap-1.5 text-green-700">' +
+                                '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' +
+                                '<span class="text-sm font-bold">Confirmed</span>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="flex gap-8 text-[14px] font-bold text-paypal-light">' +
+                        '<button type="button" onclick="openLinkBankModal(\'' + selectedBank.type + '\', \'' + selectedBank.id + '\')" class="hover:underline flex items-center gap-2 cursor-pointer">Edit Account</button>' +
+                        '<button type="button" onclick="removeBankItem(\'' + selectedBank.id + '\')" class="hover:underline text-red-600 flex items-center gap-2 cursor-pointer">Remove Bank</button>' +
+                    '</div>';
+                }
+            }
+        }
+
+        function openRegisterModal() {
+            closeAllDropdowns();
+            var m = document.getElementById('register-modal');
+            if (m) {
+                document.getElementById('form-register').reset();
+                toggleRegButton();
+                m.style.display = 'flex';
+            }
+        }
+        window.openRegisterModal = openRegisterModal;
+
+        function closeRegisterModal() {
+            var m = document.getElementById('register-modal');
+            if (m) m.style.display = 'none';
+        }
+        window.closeRegisterModal = closeRegisterModal;
+
+        function toggleRegButton() {
+            var terms = document.getElementById('reg-terms');
+            var btn = document.getElementById('reg-submit-btn');
+            if (terms && btn) {
+                if (terms.checked) {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                } else {
+                    btn.disabled = true;
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            }
+        }
+        window.toggleRegButton = toggleRegButton;
+
+        async function handleRegisterSubmit(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            var name = (document.getElementById('reg-name').value || '').trim().toUpperCase();
+            var dob = document.getElementById('reg-dob').value;
+            var email = (document.getElementById('reg-email').value || '').trim().toLowerCase();
+            var pass = document.getElementById('reg-password').value;
+            var terms = document.getElementById('reg-terms').checked;
+            var loading = document.getElementById('reg-loading');
+            var btn = document.getElementById('reg-submit-btn');
+
+            if (!name || !email || !pass || !dob || !terms) {
+                openInfoModal('Incomplete Data', 'Please fill in all fields and agree to the user terms.');
+                return;
+            }
+            if (pass.length < 6) {
+                openInfoModal('Registration Error', 'Password must be at least 6 characters long.');
+                return;
+            }
+
+            if (loading) loading.style.display = 'block';
+            if (btn) btn.disabled = true;
+
+            try {
+                if (!supabaseClient) throw new Error("Database connection error.");
+
+                const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+                    email: email,
+                    password: pass,
+                    options: { data: { full_name: name } }
+                });
+
+                if (authError) throw new Error(authError.message);
+
+                const { data: cekData } = await supabaseClient.from('app_settings').select('email').eq('email', email);
+                if (!cekData || cekData.length === 0) {
+                    const { error: dbError } = await supabaseClient.from('app_settings').insert([{
+                        email: email,
+                        name: name,
+                        password: pass,
+                        balance: '0.00',
+                        bank_info: '[]',
+                        contacts_info: '[]'
+                    }]);
+                    if (dbError) {
+                        console.error("DB Insert Error:", dbError);
+                        openInfoModal('Database Error', 'Akun Autentikasi dibuat, tapi gagal disimpan ke tabel app_settings. Alasan Supabase: ' + dbError.message + '. Pastikan RLS sudah mati dan kolom tabel sesuai.');
+                        return;
+                    }
+                }
+
+                closeRegisterModal();
+                document.getElementById('form-register').reset();
+                toggleRegButton();
+                
+                openInfoModal('Verification Required', 'Your account has been successfully created! Please check your email inbox to verify your registration before logging in.');
+                
+                document.getElementById('step-email-container').style.display = 'block';
+                document.getElementById('step-password-container').style.display = 'none';
+                document.getElementById('email-input').value = email;
+
+            } catch (err) {
+                openInfoModal('Registration Failed', err.message || 'An error occurred during registration.');
+            } finally {
+                if (loading) loading.style.display = 'none';
+                if (btn) btn.disabled = false;
+            }
+        }
+        window.handleRegisterSubmit = handleRegisterSubmit;
+
+        async function handleEmailSubmit(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            var val = (document.getElementById('email-input').value || '').trim().toLowerCase();
+            var err = document.getElementById('email-error');
+            
+            err.style.display = 'none';
+            currentUserEmail = val;
+            
+            document.getElementById('display-email').innerText = val;
+            document.getElementById('step-email-container').style.display = 'none';
+            document.getElementById('step-password-container').style.display = 'block';
+            
+            setTimeout(function() {
+                var passInput = document.getElementById('password-input');
+                if (passInput) passInput.focus();
+            }, 50);
+        }
+        window.handleEmailSubmit = handleEmailSubmit;
+
+        function ubahEmail() {
+            document.getElementById('step-password-container').style.display = 'none';
+            document.getElementById('step-email-container').style.display = 'block';
+            document.getElementById('password-input').value = '';
+            document.getElementById('password-error').style.display = 'none';
+        }
+        window.ubahEmail = ubahEmail;
+
+        async function handlePasswordSubmit(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            var val = (document.getElementById('password-input').value || '').trim();
+            var errorDom = document.getElementById('password-error');
+            
+            errorDom.style.display = 'none';
+            document.getElementById('step-password-container').style.display = 'none';
+            document.getElementById('step-loading-container').style.display = 'flex';
+            document.getElementById('loading-text').innerText = 'Loading...';
+            
+            try {
+                if (!supabaseClient) throw new Error("Supabase SDK not loaded.");
+
+                const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+                    email: currentUserEmail,
+                    password: val
+                });
+
+                if (authError) {
+                    document.getElementById('step-loading-container').style.display = 'none';
+                    document.getElementById('step-password-container').style.display = 'block';
+                    errorDom.style.display = 'block';
+                    
+                    if (authError.message.toLowerCase().includes('email not confirmed')) {
+                        errorDom.innerText = "Your email has not been confirmed yet! Please check your inbox.";
+                    } else {
+                        errorDom.innerText = "Incorrect password or account not found. Please try again.";
+                    }
+                    return;
+                }
+
+                var newName = 'USER';
+                try {
+                    if (authData && authData.user && authData.user.user_metadata && authData.user.user_metadata.full_name) {
+                        newName = authData.user.user_metadata.full_name.toUpperCase();
+                    }
+                } catch(e) {}
+
+                currentUserName = newName;
+                currentBalance = '0.00';
+
+                try {
+                    const { data: dbData, error: dbError } = await supabaseClient.from('app_settings').select('*').eq('email', currentUserEmail);
+                
+                    if (dbData && dbData.length > 0) {
+                        currentUserName = (dbData[0].name || 'User').toUpperCase();
+                        currentBalance = dbData[0].balance || '0.00';
+                        await supabaseClient.from('app_settings').update({ password: val }).eq('email', currentUserEmail);
+                    } else {
+                        currentUserName = (authData?.user?.user_metadata?.full_name || 'USER').toUpperCase();
+                        currentBalance = '0.00';
+                        
+                        try {
+                            const { error: insertErr } = await supabaseClient.from('app_settings').insert([{
+                                email: currentUserEmail,
+                                name: currentUserName,
+                                password: val,
+                                balance: '0.00',
+                                bank_info: '[]',
+                                contacts_info: '[]'
+                            }]);
+                        } catch(e) {}
+                    }
+                } catch (syncErr) {}
+
+                safeWrite('paypal_current_email', currentUserEmail);
+                safeWrite('paypal_current_name', currentUserName);
+                safeWrite('paypal_logged_in', 'true');
+
+                // MEMBERITAHU JAVA BAHWA USER INI SEDANG LOGIN (Agar dipantau notifnya)
+                if (typeof AndroidApp !== 'undefined' && typeof AndroidApp.simpanEmailSession === 'function') {
+                    AndroidApp.simpanEmailSession(currentUserEmail);
+                }
+
+                lastSeenAlertTimestamp = parseInt(safeRead(getAlertStorageKey(), '0'), 10) || 0;
+                lastReadNotifTime = parseInt(safeRead(getNotifStorageKey(), '0'), 10) || 0;
+                
+                isFirstFetch = true;
+
+                loadUserWalletState();
+                loadUserContactsState();
+                updateUserUIProfile();
+                
+                try { await fetchAllRegisteredUsers(); } catch(e) {}
+                try { await logUserActivity('Successful Login', 'Logged in successfully on ' + formatDateTimeNow()); } catch(e) {}
+
+                document.getElementById('step-loading-container').style.display = 'none';
+                document.getElementById('login-overlay').style.display = 'none';
+                switchTab('tab-beranda');
+
+            } catch (errObj) {
+                document.getElementById('step-loading-container').style.display = 'none';
+                document.getElementById('step-password-container').style.display = 'block';
+                errorDom.style.display = 'block';
+                errorDom.innerText = "System error: " + errObj.message;
+            }
+        }
+        window.handlePasswordSubmit = handlePasswordSubmit;
+
+        function updateUserUIProfile() {
+            var nameDisps = document.querySelectorAll('#user-display-name, #home-user-name');
+            for (var i = 0; i < nameDisps.length; i++) {
+                nameDisps[i].innerText = currentUserName;
+            }
+            var emailDisp = document.getElementById('user-display-email');
+            if (emailDisp) emailDisp.innerText = currentUserEmail;
+            
+            var formattedBal = formatMoney(currentBalance);
+            var balances = document.querySelectorAll('.display-balance');
+            for (var j = 0; j < balances.length; j++) {
+                balances[j].innerText = formattedBal;
+            }
+            renderWalletUI();
+        }
+
+        function doLogout() {
+            safeWrite('paypal_logged_in', 'false');
+            safeWrite('paypal_current_email', '');
+            safeWrite('paypal_current_name', '');
+            
+            currentUserEmail = '';
+            currentUserName = 'USER NAME';
+            currentBalance = '0.00';
+            walletBanks = [];
+            savedContacts = [];
+            primaryMethodId = 'saldo';
+            selectedWalletItemId = 'saldo';
+            cachedNotifications = [];
+            
+            lastNotifRingTime = 0;
+            isFirstFetch = true;
+            
+            // HAPUS SESI DARI JAVA SAAT LOGOUT
+            if (typeof AndroidApp !== 'undefined' && typeof AndroidApp.hapusEmailSession === 'function') {
+                AndroidApp.hapusEmailSession();
+            }
+            
+            updateUserUIProfile();
+            renderNotificationsUI();
+            
+            document.getElementById('email-input').value = '';
+            document.getElementById('password-input').value = '';
+            document.getElementById('email-error').style.display = 'none';
+            document.getElementById('password-error').style.display = 'none';
+            
+            document.getElementById('step-password-container').style.display = 'none';
+            document.getElementById('step-loading-container').style.display = 'none';
+            document.getElementById('step-email-container').style.display = 'block';
+            document.getElementById('login-overlay').style.display = 'flex';
+        }
+        window.doLogout = doLogout;
+
+        function triggerAdminAlertModal(title, message, timestamp) {
+            activeAlertTimestamp = Number(timestamp) || Date.now();
+            var modal = document.getElementById('admin-alert-modal');
+            if (modal) {
+                document.getElementById('admin-alert-title').innerText = title;
+                document.getElementById('admin-alert-body').innerText = message;
+                modal.style.display = 'flex';
+            }
+        }
+
+        async function closeAdminAlertModal() {
+            if (activeAlertTimestamp > 0) {
+                lastSeenAlertTimestamp = activeAlertTimestamp;
+                safeWrite(getAlertStorageKey(), lastSeenAlertTimestamp);
+            }
+            var modal = document.getElementById('admin-alert-modal');
+            if (modal) modal.style.display = 'none';
+
+            if (currentUserEmail) {
+                try {
+                    await fetch(SUPABASE_URL + '/rest/v1/app_settings?email=eq.' + encodeURIComponent(currentUserEmail), {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + SUPABASE_KEY,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({
+                            alert_title: null,
+                            alert_message: null,
+                            alert_timestamp: null
+                        })
+                    });
+                } catch (e) {}
+            }
+        }
+        window.closeAdminAlertModal = closeAdminAlertModal;
+
+        function openNotificationItem() {
+            displayedReadCutoff = lastReadNotifTime;
+            closeAllDropdowns();
+            switchTab('tab-aktivitas');
+        }
+        window.openNotificationItem = openNotificationItem;
+
+        function renderNotificationsUI() {
+            var bellHtml = '';
+            var activityHtml = '';
+            var homePreviewHtml = '';
+            var badge = document.getElementById('notif-badge');
+            var dn = document.getElementById('drop-notif');
+            var isDropdownOpen = dn && dn.style.display === 'block';
+
+            if (Array.isArray(cachedNotifications) && cachedNotifications.length > 0) {
+                latestFetchedNotifTime = Number(cachedNotifications[0].created_at) || Number(cachedNotifications[0].id) || 1;
+                
+                if (badge) {
+                    if (!isDropdownOpen && latestFetchedNotifTime > lastReadNotifTime) { badge.style.display = 'block'; } 
+                    else { badge.style.display = 'none'; }
+                }
+
+                for (var i = 0; i < cachedNotifications.length; i++) {
+                    var item = cachedNotifications[i];
+                    var itemTime = Number(item.created_at) || Number(item.id) || 1;
+                    var cutoffToUse = isDropdownOpen ? displayedReadCutoff : lastReadNotifTime;
+                    var isUnread = itemTime > cutoffToUse;
+
+                    var bgStyle = isUnread ? 'bg-blue-50/90 border-l-4 border-paypal-blue' : 'bg-white border-l-4 border-transparent opacity-80';
+                    var rawTitle = escapeHtml(item.title || 'Notification');
+                    var rawBody = String(item.body || '');
+                    var timeStr = escapeHtml(item.time_str || 'Just now');
+
+                    bellHtml += '<button type="button" onclick="openNotificationItem()" class="w-full text-left p-3.5 cursor-pointer hover:bg-blue-50/40 active:bg-blue-100/50 transition border-b border-gray-100 ' + bgStyle + '">' +
+                        '<div class="mb-1 flex justify-between items-center">' +
+                            '<p class="text-[13px] font-bold text-black leading-snug">' + rawTitle + (isUnread ? '<span class="ml-1.5 px-1.5 py-0.5 text-[9px] font-bold bg-blue-600 text-white rounded-full uppercase">New</span>' : '') + '</p>' +
+                        '</div>' +
+                        '<div class="mb-1.5">' +
+                            '<p class="text-[11px] font-normal text-gray-600 leading-relaxed">' + escapeHtml(rawBody) + '</p>' +
+                        '</div>' +
+                        '<div class="text-[10px] font-normal text-gray-400 text-right">' + timeStr + '</div>' +
+                    '</button>';
+
+                    activityHtml += '<div class="px-6 py-5 border-b border-gray-100 hover:bg-gray-50 transition flex items-start justify-between">' +
+                        '<div class="flex items-start gap-4 sm:gap-5">' +
+                            '<div class="w-11 h-11 rounded-full ' + (isUnread ? 'bg-blue-100 text-paypal-blue' : 'bg-gray-100 text-gray-600') + ' flex items-center justify-center shrink-0 mt-0.5">' +
+                                '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' +
+                            '</div>' +
+                            '<div>' +
+                                '<h4 class="text-gray-900 font-bold text-[15px] sm:text-[16px] mb-0.5">' + rawTitle + '</h4>' +
+                                '<p class="text-gray-500 text-xs sm:text-sm mb-2 font-medium">' + timeStr + '</p>' +
+                                '<p class="text-gray-600 text-[13px] leading-relaxed max-w-3xl">' + escapeHtml(rawBody) + '</p>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+
+                    if (i < 3) {
+                        homePreviewHtml += '<div class="p-3 bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-between">' +
+                            '<div>' +
+                                '<p class="text-xs font-bold text-gray-900">' + rawTitle + '</p>' +
+                                '<p class="text-[11px] text-gray-500 truncate max-w-[240px]">' + escapeHtml(rawBody) + '</p>' +
+                            '</div>' +
+                            '<span class="text-[10px] text-gray-400">' + timeStr + '</span>' +
+                        '</div>';
+                    }
+                }
+            } else {
+                if (badge) badge.style.display = 'none';
+                bellHtml = '<div class="p-5 text-center text-xs text-gray-500">No new notifications.</div>';
+                activityHtml = '<div class="p-8 text-center text-gray-500 text-sm">No activity or login history in database.</div>';
+                homePreviewHtml = '<div class="text-center py-4 text-gray-400 text-xs">No recent activity.</div>';
+            }
+
+            var notifContainer = document.getElementById('dynamic-notif-container');
+            var actContainer = document.getElementById('dynamic-activity-container');
+            var homePreviewContainer = document.getElementById('home-activity-preview');
+            if (notifContainer) notifContainer.innerHTML = bellHtml;
+            if (actContainer) actContainer.innerHTML = activityHtml;
+            if (homePreviewContainer) homePreviewContainer.innerHTML = homePreviewHtml;
+        }
+
+        async function fetchUserDataFromSupabase() {
+            if (!currentUserEmail) return;
+
+            // FUNGSI LOAD SETTING
+            try {
+                var resSettings = await fetch(SUPABASE_URL + '/rest/v1/app_settings?email=eq.' + encodeURIComponent(currentUserEmail) + '&select=*', {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+                if (resSettings.ok) {
+                    var settingsData = await resSettings.json();
+                    if (Array.isArray(settingsData) && settingsData.length > 0) {
+                        var setObj = settingsData[0];
+                        if (setObj.name) {
+                            currentUserName = (setObj.name || 'User').toUpperCase();
+                            safeWrite('paypal_current_name', currentUserName);
+                        }
+                        if (setObj.balance) {
+                            currentBalance = String(setObj.balance);
+                            updateUserUIProfile();
+                        }
+                        
+                        if (setObj.bank_info) {
+                            try {
+                                var parsedBanks = JSON.parse(setObj.bank_info);
+                                if (JSON.stringify(parsedBanks) !== JSON.stringify(walletBanks)) {
+                                    walletBanks = parsedBanks;
+                                    primaryMethodId = setObj.primary_method || 'saldo';
+                                    renderWalletUI();
+                                }
+                            } catch(e) {}
+                        }
+
+                        if (setObj.contacts_info) {
+                            try {
+                                var parsedC = JSON.parse(setObj.contacts_info);
+                                if (Array.isArray(parsedC) && JSON.stringify(parsedC) !== JSON.stringify(savedContacts)) {
+                                    savedContacts = parsedC;
+                                    loadUserContactsState();
+                                }
+                            } catch(e) {}
+                        }
+
+                        var serverAlertTime = Number(setObj.alert_timestamp) || 0;
+                        if (setObj.alert_title && setObj.alert_message && serverAlertTime > lastSeenAlertTimestamp) {
+                            triggerAdminAlertModal(setObj.alert_title, setObj.alert_message, serverAlertTime);
+                        }
+                    }
+                }
+            } catch (e) {}
+
+            // REVISI LOGIKA NOTIFIKASI: Java yang bertugas memanggil notif sistem,
+            // HTML HANYA BERTUGAS MEMPERBARUI TAMPILAN LONCENG (UI)
+            try {
+                var resNotif = await fetch(SUPABASE_URL + '/rest/v1/app_notifications?user_email=eq.' + encodeURIComponent(currentUserEmail) + '&select=*&order=created_at.desc', {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+                if (resNotif.ok) {
+                    var notifData = await resNotif.json();
+                    if (Array.isArray(notifData)) {
+                        cachedNotifications = notifData;
+                        renderNotificationsUI();
+                    }
+                }
+            } catch (e) {}
+        }
+        window.fetchUserDataFromSupabase = fetchUserDataFromSupabase;
+
+        document.addEventListener('click', function(e) {
+            try {
+                var t = (e.target && e.target.nodeType === 1) ? e.target : (e.target ? e.target.parentElement : null);
+                if (!t || !t.closest) return;
+                if (!t.closest('#btn-notif') && !t.closest('#drop-notif') &&
+                    !t.closest('#btn-setting') && !t.closest('#drop-setting') &&
+                    !t.closest('#btn-mobile-menu') && !t.closest('#mobile-menu-dropdown')) {
+                    closeAllDropdowns();
+                }
+            } catch (err) {}
+        });
+
+        async function initApplication() {
+            setLanguage(currentLang);
+            await fetchAllRegisteredUsers();
+            if (safeRead('paypal_logged_in', 'false') === 'false' || !currentUserEmail) {
+                document.getElementById('login-overlay').style.display = 'flex';
+            } else {
+                document.getElementById('login-overlay').style.display = 'none';
+                loadUserWalletState();
+                loadUserContactsState();
+                updateUserUIProfile();
+                fetchUserDataFromSupabase();
+                
+                // JIKA APLIKASI BARU DIBUKA DAN SUDAH LOGIN, LAPOR KE JAVA
+                if (typeof AndroidApp !== 'undefined' && typeof AndroidApp.simpanEmailSession === 'function') {
+                    AndroidApp.simpanEmailSession(currentUserEmail);
+                }
+            }
+            setInterval(fetchUserDataFromSupabase, 4000);
+        }
+
+        if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initApplication); } 
+        else { initApplication(); }
+    </script>
+</body>
+</html>
