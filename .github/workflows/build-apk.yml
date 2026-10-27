@@ -1,0 +1,28 @@
+ name: Build APK
+    runs-on: ubuntu-latest # Menggunakan server Linux gratis dari GitHub
+
+    steps:
+      # 1. Mengambil kode Anda dari repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # 2. Menginstal Flutter di server GitHub
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable' # Menggunakan versi Flutter paling stabil
+
+      # 3. Mengunduh package/library (seperti Supabase & Webview)
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # 4. Mem-build (Mencetak) APK
+      - name: Build APK
+        run: flutter build apk --release
+
+      # 5. Mengunggah hasil APK agar bisa Anda download
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: rilis-apk-cangkang
+          path: build/app/outputs/flutter-apk/app-release.apk
