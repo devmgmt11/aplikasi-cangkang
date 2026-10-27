@@ -9,31 +9,18 @@ sdk: '>=3.0.0 <4.0.0'
 dependencies:
 flutter:
 sdk: flutter
-
-Library untuk memuat HTML lokal
-
 webview_flutter: ^4.7.0
-
-Library untuk meminta izin notifikasi
-
 permission_handler: ^11.3.1
 
 dev_dependencies:
 flutter_test:
 sdk: flutter
-
-Library otomatis untuk mengganti logo aplikasi
-
 flutter_launcher_icons: "^0.13.1"
-
-Pengaturan Logo Aplikasi
 
 flutter_icons:
 android: true
 ios: false
 image_path: "assets/logo.png"
-
-Bagian flutter utama
 
 flutter:
 uses-material-design: true
