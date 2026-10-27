@@ -1,4 +1,14 @@
- name: Build APK
+name: Build Flutter APK
+
+# Kapan aksi ini dijalankan? (Saat ada kode baru di-push ke branch main)
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build APK
     runs-on: ubuntu-latest # Menggunakan server Linux gratis dari GitHub
 
     steps:
