@@ -3,8 +3,8 @@ description: Aplikasi PayPal Business
 publish_to: 'none'
 version: 1.0.0+1
 
- environment:
- sdk: '>=3.13.0 <4.0.0'
+environment:
+sdk: '^3.13.0'
 
 dependencies:
  flutter:
@@ -15,14 +15,14 @@ dependencies:
 dev_dependencies:
  flutter_test:
  sdk: flutter
- flutter_launcher_icons: "^0.13.1"
+ flutter_launcher_icons: ^0.13.1
 
  flutter_icons:
  android: true
  ios: false
  image_path: "assets/logo.png"
 
- flutter:
+flutter:
  uses-material-design: true
  assets:
  - assets/paypal.html
